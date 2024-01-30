@@ -1,4 +1,5 @@
 import os
+import logging
 import numpy as np
 import supervision as sv
 from PIL import Image as PILImg
@@ -52,14 +53,30 @@ def crop_images(original_image, bounding_boxes):
         print(f"Error in crop_images: {e}")
 
 
-def annotate(image_source, boxes, logits, phrases):
-    detections = sv.Detections(xyxy=boxes.numpy())
-    labels = [
-        f"{phrase} {logit:.2f}"
-        for phrase, logit
-        in zip(phrases, logits)
-    ]
-    box_annotator = sv.BoxAnnotator()
-    img_pil = PILImg.fromarray(box_annotator.annotate(scene=np.array(image_source), detections=detections, labels=labels))
-    return img_pil
+    def annotate(image_source, boxes, logits, phrases):
+        """
+        Annotate image with bounding boxes, logits, and phrases.
 
+        Parameters:
+        - image_source (PIL.Image.Image): Input image source.
+        - boxes (torch.tensor): Bounding boxes in xyxy format.
+        - logits (list): List of confidence logits.
+        - phrases (list): List of phrases.
+
+        Returns:
+        - PIL.Image: Annotated image.
+        """
+        try:
+            detections = sv.Detections(xyxy=boxes.numpy())
+            labels = [
+                f"{phrase} {logit:.2f}"
+                for phrase, logit
+                in zip(phrases, logits)
+            ]
+            box_annotator = sv.BoxAnnotator()
+            img_pil = PILImg.fromarray(box_annotator.annotate(scene=np.array(image_source), detections=detections, labels=labels))
+            return img_pil
+        
+        except Exception as e:
+            logging.error(f"Error during annotation: {e}")
+            raise e

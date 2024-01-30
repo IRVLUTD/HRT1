@@ -9,8 +9,8 @@ from huggingface_hub import hf_hub_download
 from groundingdino.models import build_model
 import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
-from groundingdino.util.utils import clean_state_dict
 from groundingdino.util.inference import predict
+from groundingdino.util.utils import clean_state_dict
 
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
@@ -39,12 +39,11 @@ class ObjectDetector(Logger):
 
 class GroundingDINOObjectDetector(ObjectDetector):
     """
-    This class implements Object detection using HugginFace GroundingDINO
+    This class implements Object detection using HuggingFace GroundingDINO
     Here instead of using generic language query, we fix the text prompt as "objects" which enables
     getting compact bounding boxes arounds generic objects.
-    These cropped bboxes when used with OpenAI CLIP yields good classification results.
+    Hope is that these cropped bboxes when used with OpenAI CLIP yields good classification results.
     """
-
     def __init__(self):
         super().__init__()
         self.ckpt_repo_id = "ShilongLiu/GroundingDINO"
@@ -54,39 +53,99 @@ class GroundingDINOObjectDetector(ObjectDetector):
             self.config_file, self.ckpt_repo_id, self.ckpt_filenmae
         )
 
-
     def load_model_hf(self, model_config_path, repo_id, filename):
-        args = SLConfig.fromfile(model_config_path) 
-        model = build_model(args)
-        args.device = self.device
+        """
+        Load model from Hugging Face hub.
 
-        cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
-        checkpoint = torch.load(cache_file, map_location='cpu')
-        log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-        print("Model loaded from {} \n => {}".format(cache_file, log))
-        _ = model.eval()
-        return model    
+        Parameters:
+        - model_config_path (str): Path to model configuration file.
+        - repo_id (str): ID of the repository.
+        - filename (str): Name of the file.
+
+        Returns:
+        - torch.nn.Module: Loaded model.
+        """
+        try:
+            args = SLConfig.fromfile(model_config_path) 
+            model = build_model(args)
+            args.device = self.device
+
+            cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
+            checkpoint = torch.load(cache_file, map_location=self.device)
+            log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
+            print("Model loaded from {} \n => {}".format(cache_file, log))
+            _ = model.eval()
+            return model    
+
+        except Exception as e:
+            # Log error and raise exception
+            self.logger.error(f"Error loading model from Hugging Face hub: {e}")
+            raise e
 
     def image_transform_grounding(self, image_pil):
-        transform = T.Compose([
-            T.RandomResize([800], max_size=1333),
-            T.ToTensor(),
-            T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-        image, _ = transform(image_pil, None) # 3, h, w
-        return image_pil, image
+        """
+        Apply image transformation for grounding.
+
+        Parameters:
+        - image_pil (PIL.Image): Input image.
+
+        Returns:
+        - tuple: Tuple containing original PIL image and transformed tensor image.
+        """
+        try:
+            transform = T.Compose([
+                T.RandomResize([800], max_size=1333),
+                T.ToTensor(),
+                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])
+            image, _ = transform(image_pil, None) # 3, h, w
+            return image_pil, image
+        
+        except Exception as e:
+            self.logger.error(f"Error during image transformation for grounding: {e}")
+            raise e
 
     def image_transform_for_vis(self, image_pil):
-        transform = T.Compose([
-            T.RandomResize([800], max_size=1333),
-        ])
-        image, _ = transform(image_pil, None) # 3, h, w
-        return image
+        """
+        Apply image transformation for visualization.
+
+        Parameters:
+        - image_pil (PIL.Image): Input image.
+
+        Returns:
+        - torch.tensor: Transformed tensor image.
+        """
+        try:
+            transform = T.Compose([
+                T.RandomResize([800], max_size=1333),
+            ])
+            image, _ = transform(image_pil, None) # 3, h, w
+            return image
+        
+        except Exception as e:
+            self.logger.error(f"Error during image transformation for visualization: {e}")
+            raise e
 
     def bbox_to_scaled_xyxy(self, bboxes: torch.tensor, img_w, img_h):
-        bboxes = bboxes * torch.Tensor([img_w, img_h, img_w, img_h])
-        bboxes_xyxy = box_convert(boxes=bboxes, in_fmt="cxcywh", out_fmt="xyxy")
-        return bboxes_xyxy
+        """
+        Convert bounding boxes to scaled xyxy format.
+
+        Parameters:
+        - bboxes (torch.tensor): Input bounding boxes in cxcywh format.
+        - img_w (int): Image width.
+        - img_h (int): Image height.
+
+        Returns:
+        - torch.tensor: Converted bounding boxes in xyxy format.
+        """
+        try:
+            bboxes = bboxes * torch.Tensor([img_w, img_h, img_w, img_h])
+            bboxes_xyxy = box_convert(boxes=bboxes, in_fmt="cxcywh", out_fmt="xyxy")
+            return bboxes_xyxy
+        
+        except Exception as e:
+            self.logger.error(f"Error during bounding box conversion: {e}")
+            raise e
     
     def predict(self, image_pil: PILImg, det_text_prompt: str = "objects"):
         """
@@ -161,12 +220,11 @@ class ZeroShotClipPredictor(Logger):
         - text_prompts (list): List of text prompts for prediction.
 
         Returns:
-        None
+        - Tuple: Tuple containing prediction confidence and indices.
         """
         try:
-
+            # Perform prediction
             image_features, text_features = self.get_features(image_array, text_prompts)
-
 
             # Normalize features
             image_features /= image_features.norm(dim=-1, keepdim=True)
@@ -179,5 +237,6 @@ class ZeroShotClipPredictor(Logger):
             return (pconf.flatten(), indices.flatten())
 
         except Exception as e:
+            # Log error and raise exception
             self.logger.error(f"Error during prediction: {e}")
             raise e

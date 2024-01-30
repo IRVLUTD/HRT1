@@ -15,7 +15,7 @@ TODO
 
 ### Installation
 ```sh
-git clone https://github.com/IRVLUTD/robokit.git && cd robotkit 
+git clone https://github.com/IRVLUTD/robokit.git && cd robokit 
 pip install -r requirements.txt
 python setuo.py install
 ```
