@@ -1,17 +1,16 @@
 import os
-import cv2
 import clip
 import torch
 import logging
 import warnings
 from PIL import Image as PILImg
+from torchvision.ops import box_convert
+from huggingface_hub import hf_hub_download
 from groundingdino.models import build_model
+import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.utils import clean_state_dict
-from groundingdino.util.inference import annotate, load_image, predict
-import groundingdino.datasets.transforms as T
-from huggingface_hub import hf_hub_download
-from torchvision.ops import box_convert
+from groundingdino.util.inference import predict
 
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")

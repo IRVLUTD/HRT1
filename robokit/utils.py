@@ -1,8 +1,7 @@
 import os
-import random
 import numpy as np
 import supervision as sv
-from PIL import ImageDraw, Image as PILImg
+from PIL import Image as PILImg
 
 
 def file_exists(file_path):

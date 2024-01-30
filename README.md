@@ -3,7 +3,7 @@ A toolkit for robotics tasks
 
 ## Features
 - Zero-shot text-to-bbox approach for object detection using GroundingDINO.
-- Zero-shot text-to-bbox approach for object detection using OpenAI CLIP.
+- Zero-shot classification using OpenAI CLIP.
 
 ## Getting Started
 
@@ -15,12 +15,13 @@ TODO
 
 ### Installation
 ```sh
+git clone https://github.com/IRVLUTD/robokit.git && cd robotkit 
 pip install -r requirements.txt
-pip install -U git+https://github.com/IRVLUTD/robokit.git
+python setuo.py install
 ```
 
 ## Usage
-- GroundingDINO + CLIP: `test_gdino_clip.py`
+- GroundingDINO + CLIP: [`test_gdino_clip.py`](test_gdino_clip.py)
 
 ## Roadmap
 
