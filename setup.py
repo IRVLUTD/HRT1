@@ -37,11 +37,11 @@ class FileFetch(install):
         )
         
         # Download SAM checkpoint
-        self.download_pytorch_checkpoint(
-            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
-            os.path.join(os.getcwd(), "ckpts", "sam"),
-            "vit_h.pth"
-        )
+        # self.download_pytorch_checkpoint(
+        #     "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+        #     os.path.join(os.getcwd(), "ckpts", "sam"),
+        #     "vit_h.pth"
+        # )
 
         # Download SAM checkpoint
         self.download_pytorch_checkpoint(
