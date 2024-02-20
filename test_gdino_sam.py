@@ -32,9 +32,6 @@ def main(argv):
 
         bbox_annotated_pil.show()
 
-        # logging.info("Show SAM Masks")
-        # overlay_masks(image_pil, masks).show()
-
 
     except Exception as e:
         # Handle unexpected errors

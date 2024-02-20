@@ -2,8 +2,8 @@ import os
 import random
 import logging
 import numpy as np
+from typing import List
 import supervision as sv
-import matplotlib.pyplot as plt
 from PIL import Image as PILImg, ImageDraw
 
 
@@ -83,21 +83,43 @@ def annotate(image_source, boxes, logits, phrases):
         logging.error(f"Error during annotation: {e}")
         raise e
 
-
 def draw_mask(mask, draw, random_color=False):
+    """
+    Draw a segmentation mask on an image.
+
+    Parameters:
+    - mask (numpy.ndarray): The segmentation mask as a NumPy array.
+    - draw (PIL.ImageDraw.ImageDraw): The PIL ImageDraw object to draw on.
+    - random_color (bool, optional): Whether to use a random color for the mask. Default is False.
+
+    Returns:
+    - None
+    """
+    # Define the color for the mask
     if random_color:
-        color = (random.randint(0, 255), random.randint(
-            0, 255), random.randint(0, 255), 153)
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 153)
     else:
         color = (30, 144, 255, 153)
 
+    # Get the coordinates of non-zero elements in the mask
     nonzero_coords = np.transpose(np.nonzero(mask))
 
+    # Draw each non-zero coordinate on the image
     for coord in nonzero_coords:
         draw.point(coord[::-1], fill=color)
 
 
 def overlay_masks(image_pil: PILImg, masks):
+    """
+    Overlay segmentation masks on the input image.
+
+    Parameters:
+    - image_pil (PIL.Image): The input image as a PIL image.
+    - masks (List[Tensor]): List of segmentation masks as torch Tensors.
+
+    Returns:
+    - PIL.Image: The image with overlayed segmentation masks.
+    """
     mask_image = PILImg.new('RGBA', image_pil.size, color=(0, 0, 0, 0))
     mask_draw = ImageDraw.Draw(mask_image)
     for mask in masks:

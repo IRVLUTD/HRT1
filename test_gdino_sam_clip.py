@@ -30,7 +30,9 @@ def main(argv):
 
         logging.info("SAM prediction")
         image_pil_bboxes, masks = SAM.predict(image_pil, image_pil_bboxes)
-        overlay_masks(np.array(image_pil),masks)
+        logging.info("SAM prediction done")
+
+        overlay_masks(image_pil,masks)
 
 
         logging.info("Crop images based on bounding boxes")
@@ -52,10 +54,10 @@ def main(argv):
         predicted_labels = [ text_prompt.split(',')[i] for i in idx ]
         
         logging.info("Annotate the scaled image with bounding boxes, confidence scores, and labels, and display")
-        bbox_annotated_pil = annotate(scaled_image_pil, scaled_image_pil_bboxes, clip_conf, predicted_labels)
+        # bbox_annotated_pil = annotate(scaled_image_pil, scaled_image_pil_bboxes, clip_conf, predicted_labels)
+        bbox_annotated_pil = annotate(overlay_masks(image_pil, masks), image_pil_bboxes, clip_conf, predicted_labels)
 
-        logging.info("Show SAM Masks")
-        overlay_masks(np.array(bbox_annotated_pil),masks)
+        bbox_annotated_pil.show()
 
 
     except Exception as e:
