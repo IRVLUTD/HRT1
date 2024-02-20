@@ -17,7 +17,7 @@ def main(argv):
         w, h =image_pil.size
 
         logging.info("SAM prediction")
-        image_pil_bboxes, masks = SAM.predict(image_pil, prompt_bboxes=np.array([0,0,w//2,h//2]))
+        image_pil_bboxes, masks = SAM.predict(image_pil, prompt_bboxes=np.array([0,0,w,h]))
         # if prompt_bboxes is None, SAM will generate masks for the entire image: todo not yet complete
         # image_pil_bboxes, masks = SAM.predict(image_pil, prompt_bboxes=None)
 
@@ -30,5 +30,5 @@ def main(argv):
 
 if __name__ == "__main__":
     # Run the main function with the input image path
-    app.run(main, ['imgs/color-000078.png'])
-    # app.run(main, ['imgs/color-000019.png'])
+    # app.run(main, ['imgs/color-000078.png'])
+    app.run(main, ['imgs/color-000019.png'])

@@ -176,34 +176,68 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
 
 
 class SegmentAnythingPredictor(ObjectPredictor):
+    """
+    Predictor class for segmenting objects using the Segment Anything model.
+
+    Inherits from ObjectPredictor.
+
+    Attributes:
+    - device (str): The device used for inference, either "cuda" or "cpu".
+    - sam (torch.nn.Module): The Segment Anything model.
+    - mask_generator (SamAutomaticMaskGenerator): The mask generator for the SAM model.
+    - predictor (SamPredictor): The predictor for the SAM model.
+    """
+
     def __init__(self):
-            super().__init__()
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            # self.sam = sam_model_registry["vit_h"](checkpoint="ckpts/sam/vit_h.pth")
-            self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
-            self.mask_generator = SamAutomaticMaskGenerator(self.sam) # generate masks for entire image
-            self.sam.to(device=self.device)
-            self.sam.eval()
-            self.predictor = SamPredictor(self.sam)
+        """
+        Initialize the SegmentAnythingPredictor object.
+        """
+        super().__init__()
+        self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
+        self.mask_generator = SamAutomaticMaskGenerator(self.sam)  # generate masks for entire image
+        self.sam.to(device=self.device)
+        self.sam.eval()
+        self.predictor = SamPredictor(self.sam)
 
     def predict(self, image, prompt_bboxes):
-        image = np.array(image) # convert to np.array
-        if prompt_bboxes is not None:
-            input_boxes = torch.tensor(prompt_bboxes, device=self.predictor.device)
-            transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
-            self.predictor.set_image(image)
-            masks, _, _ = self.predictor.predict_torch(
-                point_coords=None,
-                point_labels=None,
-                boxes=transformed_boxes,
-                multimask_output=False,
-            )
-        else:
-            # todo: not working (need to find the reason)
-            input_boxes = None
-            masks = self.mask_generator.generate(image)
-        
-        return input_boxes, masks
+        """
+        Predict segmentation masks for the input image.
+
+        Parameters:
+        - image: The input image as a numpy array.
+        - prompt_bboxes: Optional prompt bounding boxes as a list of lists of integers [x_min, y_min, x_max, y_max].
+
+        Returns:
+        - A tuple containing the input bounding boxes (if provided) and the segmentation masks as torch Tensors.
+
+        Raises:
+        - ValueError: If the input image is not a numpy array.
+        """
+        try:
+            # Convert input image to numpy array
+            image = np.array(image)
+
+            # Check if prompt_bboxes is provided
+            if prompt_bboxes is not None:
+                # Convert prompt bounding boxes to torch tensor
+                input_boxes = torch.tensor(prompt_bboxes, device=self.predictor.device)
+                transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+                self.predictor.set_image(image)
+                masks, _, _ = self.predictor.predict_torch(
+                    point_coords=None,
+                    point_labels=None,
+                    boxes=transformed_boxes,
+                    multimask_output=False,
+                )
+            else:
+                input_boxes = None
+                masks = self.mask_generator.generate(image)
+            
+            return input_boxes, masks
+
+        except ValueError as ve:
+            print(f"ValueError: {ve}")
+            return None, None
 
 
 class ZeroShotClipPredictor(Logger):

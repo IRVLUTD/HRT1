@@ -22,7 +22,9 @@ python setup.py install
 ```
 
 ## Usage
-- GroundingDINO + CLIP: [`test_gdino_clip.py`](test_gdino_clip.py)
+- SAM: [`test_sam.py`](test_sam.py)
+- GroundingDINO + SAM: [`test_gdino_sam.py`](test_gdino_sam.py)
+- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test_gdino_sam_clip.py)
 
 ## Roadmap
 
