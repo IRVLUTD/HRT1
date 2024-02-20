@@ -3,6 +3,7 @@ import clip
 import torch
 import logging
 import warnings
+import numpy as np
 from PIL import Image as PILImg
 from torchvision.ops import box_convert
 from huggingface_hub import hf_hub_download
@@ -11,6 +12,7 @@ import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
+from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
@@ -27,17 +29,38 @@ class Logger:
         self.logger = logging.getLogger(__name__)
     
 
-class ObjectDetector(Logger):
+class ObjectPredictor(Logger):
     """
-    Root class for object detection
-    All other object detector classes should inherit this
+    Root class for object predicton
+    All other object prediction classes should inherit this
     """
     def __init__(self):
         super().__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    def bbox_to_scaled_xyxy(self, bboxes: torch.tensor, img_w, img_h):
+        """
+        Convert bounding boxes to scaled xyxy format.
+
+        Parameters:
+        - bboxes (torch.tensor): Input bounding boxes in cxcywh format.
+        - img_w (int): Image width.
+        - img_h (int): Image height.
+
+        Returns:
+        - torch.tensor: Converted bounding boxes in xyxy format.
+        """
+        try:
+            bboxes = bboxes * torch.Tensor([img_w, img_h, img_w, img_h])
+            bboxes_xyxy = box_convert(boxes=bboxes, in_fmt="cxcywh", out_fmt="xyxy")
+            return bboxes_xyxy
+        
+        except Exception as e:
+            self.logger.error(f"Error during bounding box conversion: {e}")
+            raise e
 
 
-class GroundingDINOObjectDetector(ObjectDetector):
+class GroundingDINOObjectPredictor(ObjectPredictor):
     """
     This class implements Object detection using HuggingFace GroundingDINO
     Here instead of using generic language query, we fix the text prompt as "objects" which enables
@@ -52,6 +75,7 @@ class GroundingDINOObjectDetector(ObjectDetector):
         self.model = self.load_model_hf(
             self.config_file, self.ckpt_repo_id, self.ckpt_filenmae
         )
+    
 
     def load_model_hf(self, model_config_path, repo_id, filename):
         """
@@ -125,27 +149,6 @@ class GroundingDINOObjectDetector(ObjectDetector):
         except Exception as e:
             self.logger.error(f"Error during image transformation for visualization: {e}")
             raise e
-
-    def bbox_to_scaled_xyxy(self, bboxes: torch.tensor, img_w, img_h):
-        """
-        Convert bounding boxes to scaled xyxy format.
-
-        Parameters:
-        - bboxes (torch.tensor): Input bounding boxes in cxcywh format.
-        - img_w (int): Image width.
-        - img_h (int): Image height.
-
-        Returns:
-        - torch.tensor: Converted bounding boxes in xyxy format.
-        """
-        try:
-            bboxes = bboxes * torch.Tensor([img_w, img_h, img_w, img_h])
-            bboxes_xyxy = box_convert(boxes=bboxes, in_fmt="cxcywh", out_fmt="xyxy")
-            return bboxes_xyxy
-        
-        except Exception as e:
-            self.logger.error(f"Error during bounding box conversion: {e}")
-            raise e
     
     def predict(self, image_pil: PILImg, det_text_prompt: str = "objects"):
         """
@@ -169,6 +172,36 @@ class GroundingDINOObjectDetector(ObjectDetector):
         except Exception as e:
             self.logger.error(f"Error during model prediction: {e}")
             raise e
+
+
+class SegmentAnythingPredictor(ObjectPredictor):
+    def __init__(self):
+            super().__init__()
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.sam = sam_model_registry["vit_h"](checkpoint="ckpts/sam/vit_h.pth")
+            # self.sam = sam_model_registry["vit_t"](checkpoint="pretrained_checkpoints/sam/mobile_sam.pt")
+            self.mask_generator = SamAutomaticMaskGenerator(self.sam) # generate masks for entire image
+            self.sam.to(device=self.device)
+            self.sam.eval()
+            self.predictor = SamPredictor(self.sam)
+
+    def predict(self, image, prompt_bboxes):
+        image = np.array(image) # convert to np.array
+        if prompt_bboxes is not None:
+            input_boxes = torch.tensor(prompt_bboxes, device=self.predictor.device)
+            transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+            self.predictor.set_image(image)
+            masks, _, _ = self.predictor.predict_torch(
+                point_coords=None,
+                point_labels=None,
+                boxes=transformed_boxes,
+                multimask_output=False,
+            )
+        else:
+            input_boxes = None
+            masks = self.mask_generator.generate(image)
+        
+        return input_boxes, masks
 
 
 class ZeroShotClipPredictor(Logger):

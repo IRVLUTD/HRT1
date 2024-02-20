@@ -1,8 +1,9 @@
 # RoboKit
-A toolkit for robotics tasks
+A toolkit for robotic tasks
 
 ## Features
 - Zero-shot text-to-bbox approach for object detection using GroundingDINO.
+- Zero-shot bbox-to-mask approach for object detection using SegmentAnything.
 - Zero-shot classification using OpenAI CLIP.
 
 ## Getting Started
@@ -17,7 +18,8 @@ TODO
 ```sh
 git clone https://github.com/IRVLUTD/robokit.git && cd robokit 
 pip install -r requirements.txt
-python setuo.py install
+python setup.py install
+pip install https://github.com/ChaoningZhang/MobileSAM # for MobileSAM
 ```
 
 ## Usage
@@ -32,6 +34,7 @@ TODO
 
 This project is based on the following repositories:
 - [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
+- [SegmentAnything](https://github.com/facebookresearch/segment-anything)
 - [CLIP](https://github.com/openai/CLIP)
 
 ## License
