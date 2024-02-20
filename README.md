@@ -33,7 +33,7 @@ TODO
 
 This project is based on the following repositories:
 - [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
-- [MobileSAM](git+https://github.com/ChaoningZhang/MobileSAM)
+- [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
 - [CLIP](https://github.com/openai/CLIP)
 
 ## License
