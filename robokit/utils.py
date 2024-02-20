@@ -105,4 +105,4 @@ def overlay_masks(image_pil: PILImg, masks):
 
     image_pil = image_pil.convert('RGBA')
     image_pil.alpha_composite(mask_image)
-    return image_pil
+    return image_pil.convert('RGB')

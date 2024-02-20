@@ -12,7 +12,8 @@ import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
-from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
+# from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
+from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
@@ -178,8 +179,8 @@ class SegmentAnythingPredictor(ObjectPredictor):
     def __init__(self):
             super().__init__()
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.sam = sam_model_registry["vit_h"](checkpoint="ckpts/sam/vit_h.pth")
-            # self.sam = sam_model_registry["vit_t"](checkpoint="pretrained_checkpoints/sam/mobile_sam.pt")
+            # self.sam = sam_model_registry["vit_h"](checkpoint="ckpts/sam/vit_h.pth")
+            self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
             self.mask_generator = SamAutomaticMaskGenerator(self.sam) # generate masks for entire image
             self.sam.to(device=self.device)
             self.sam.eval()
@@ -198,6 +199,7 @@ class SegmentAnythingPredictor(ObjectPredictor):
                 multimask_output=False,
             )
         else:
+            # todo: not working (need to find the reason)
             input_boxes = None
             masks = self.mask_generator.generate(image)
         

@@ -17,9 +17,9 @@ def main(argv):
         w, h =image_pil.size
 
         logging.info("SAM prediction")
-        # if prompt_bboxes is None, SAM will generate masks for the entire image: todo not yet complete
         image_pil_bboxes, masks = SAM.predict(image_pil, prompt_bboxes=np.array([0,0,w//2,h//2]))
-        logging.info(":")
+        # if prompt_bboxes is None, SAM will generate masks for the entire image: todo not yet complete
+        # image_pil_bboxes, masks = SAM.predict(image_pil, prompt_bboxes=None)
 
         overlay_masks(image_pil,masks).show()
 
