@@ -19,7 +19,7 @@ class FileFetch(install):
             "pip", "install", "-U",
             'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
             'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
-            # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
+            'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
         ])
 
         # subprocess.run([
@@ -29,18 +29,18 @@ class FileFetch(install):
         subprocess.call
 
         # Download GroundingDINO checkpoint
-        # self.download_pytorch_checkpoint(
-        #     "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
-        #     os.path.join(os.getcwd(), "ckpts", "gdino"),
-        #     "gdino.pth"
-        # )
+        self.download_pytorch_checkpoint(
+            "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
+            os.path.join(os.getcwd(), "ckpts", "gdino"),
+            "gdino.pth"
+        )
         
         # Download SAM checkpoint
-        # self.download_pytorch_checkpoint(
-        #     "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
-        #     os.path.join(os.getcwd(), "ckpts", "sam"),
-        #     "vit_h.pth"
-        # )
+        self.download_pytorch_checkpoint(
+            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+            os.path.join(os.getcwd(), "ckpts", "sam"),
+            "vit_h.pth"
+        )
 
 
     def download_pytorch_checkpoint(self, pth_url: str, save_path: str, renamed_file: str):

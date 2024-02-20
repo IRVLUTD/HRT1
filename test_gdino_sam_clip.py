@@ -37,7 +37,7 @@ def main(argv):
         cropped_bbox_imgs = list(map(lambda bbox: (image_pil.crop(bbox.int().numpy())), image_pil_bboxes))
         
         logging.info("CLIP: Predict labels for cropped images")
-        clip_conf, idx = _clip.predict(cropped_bbox_imgs, text_prompts)
+        clip_conf, idx = _clip.predict(cropped_bbox_imgs, text_prompt.split(','))
         
         logging.info("Scale the original image for visualization")
         scaled_image_pil = gdino.image_transform_for_vis(image_pil)
@@ -49,10 +49,10 @@ def main(argv):
         scaled_image_pil_bboxes = gdino.bbox_to_scaled_xyxy(bboxes, ws, hs)
 
         logging.info("Get the predicted labels based on the indices")
-        predicted_labels = [ text_prompts[i] for i in idx ]
+        predicted_labels = [ text_prompt.split(',')[i] for i in idx ]
         
         logging.info("Annotate the scaled image with bounding boxes, confidence scores, and labels, and display")
-        bbox_annotated_pil = annotate(scaled_image_pil, scaled_image_pil_bboxes, clip_conf, predicted_labels).show()
+        bbox_annotated_pil = annotate(scaled_image_pil, scaled_image_pil_bboxes, clip_conf, predicted_labels)
 
         logging.info("Show SAM Masks")
         overlay_masks(np.array(bbox_annotated_pil),masks)
