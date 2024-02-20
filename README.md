@@ -19,7 +19,6 @@ TODO
 git clone https://github.com/IRVLUTD/robokit.git && cd robokit 
 pip install -r requirements.txt
 python setup.py install
-pip install https://github.com/ChaoningZhang/MobileSAM # for MobileSAM
 ```
 
 ## Usage
