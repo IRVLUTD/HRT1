@@ -1,6 +1,7 @@
 import os
 import random
 import logging
+import torch
 import numpy as np
 import supervision as sv
 import matplotlib.pyplot as plt
@@ -69,7 +70,7 @@ def annotate(image_source, boxes, logits, phrases):
     - PIL.Image: Annotated image.
     """
     try:
-        detections = sv.Detections(xyxy=boxes.numpy())
+        detections = sv.Detections(xyxy=boxes.cpu().numpy())
         labels = [
             f"{phrase} {logit:.2f}"
             for phrase, logit
@@ -106,3 +107,23 @@ def overlay_masks(image_pil: PILImg, masks):
     image_pil = image_pil.convert('RGBA')
     image_pil.alpha_composite(mask_image)
     return image_pil.convert('RGB')
+
+
+def combine_masks(gt_masks):
+    """
+    Combine several bit masks [N, H, W] into a mask [H,W],
+    e.g. 8*480*640 tensor becomes a numpy array of 480*640.
+    [[1,0,0], [0,1,0]] = > [1,2,0].
+    """
+    num, h, w = gt_masks.shape
+    # bin_mask = np.zeros((h, w))
+    bin_mask = torch.zeros((h,w), device=gt_masks.device)
+    num_instance = len(gt_masks)
+    # if there is not any instance, just return a mask full of 0s.
+    if num_instance == 0:
+        return bin_mask
+
+    for m, object_label in zip(gt_masks, range(1, 1+num_instance)):
+        label_pos = torch.nonzero(m, as_tuple=True)
+        bin_mask[label_pos] = object_label
+    return bin_mask
