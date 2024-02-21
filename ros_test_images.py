@@ -144,7 +144,8 @@ class ImageListener:
         masks = masks[index]
         mask = combine_masks(masks[:, 0, :, :]).cpu().numpy()
         gdino_conf = gdino_conf[index]
-        phrases = [phrases[i] for i in index]
+        ind = np.where(index)[0]
+        phrases = [phrases[i] for i in ind]
 
         # logging.info("Annotate the scaled image with bounding boxes, confidence scores, and labels, and display")
         bbox_annotated_pil = annotate(overlay_masks(img_pil, masks), image_pil_bboxes, gdino_conf, phrases)
