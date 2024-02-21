@@ -43,7 +43,8 @@ class ImageListener:
 
         # initialize a node
         rospy.init_node("seg_rgb")
-        self.label_pub = rospy.Publisher('seg_label', Image, queue_size=10)
+        self.label_pub = rospy.Publisher('seg_label_refined', Image, queue_size=10)
+        self.score_pub = rospy.Publisher('seg_score', Image, queue_size=10)     
         self.image_pub = rospy.Publisher('seg_image', Image, queue_size=10)
 
         if camera  == 'Fetch':
@@ -167,6 +168,19 @@ class ImageListener:
         label_msg.header.frame_id = rgb_frame_id
         label_msg.encoding = 'mono8'
         self.label_pub.publish(label_msg)
+
+        # publish score map
+        score = label.copy()
+        mask_ids = np.unique(label)
+        if mask_ids[0] == 0:
+            mask_ids = mask_ids[1:]
+        for index, mask_id in enumerate(mask_ids):
+            score[label == mask_id] = gdino_conf[index]
+        label_msg = ros_numpy.msgify(Image, score.astype(np.uint8), 'mono8')
+        label_msg.header.stamp = rgb_frame_stamp
+        label_msg.header.frame_id = rgb_frame_id
+        label_msg.encoding = 'mono8'
+        self.score_pub.publish(label_msg)        
 
         num_object = len(np.unique(label)) - 1
         print('%d objects' % (num_object))
