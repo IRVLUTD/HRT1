@@ -149,3 +149,13 @@ def combine_masks(gt_masks):
         label_pos = torch.nonzero(m, as_tuple=True)
         bin_mask[label_pos] = object_label
     return bin_mask
+
+
+def filter_large_boxes(boxes, w, h, threshold=0.5):
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    area = (x2 - x1) * (y2 - y1)
+    index = area < (w * h) * threshold
+    return boxes[index], index.cpu()

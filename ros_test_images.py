@@ -12,7 +12,7 @@ from PIL import Image as PILImg
 from matplotlib import pyplot as plt
 from sensor_msgs.msg import Image, CameraInfo
 from robokit.ObjDetection import GroundingDINOObjectPredictor, SegmentAnythingPredictor
-from robokit.utils import annotate, overlay_masks, combine_masks
+from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 lock = threading.Lock()
 
 
@@ -137,7 +137,13 @@ class ImageListener:
 
         # logging.info("SAM prediction")
         image_pil_bboxes, masks = self.SAM.predict(img_pil, image_pil_bboxes)
+
+        # filter large boxes
+        image_pil_bboxes, index = filter_large_boxes(image_pil_bboxes, w, h, threshold=0.5)
+        masks = masks[index]
         mask = combine_masks(masks[:, 0, :, :]).cpu().numpy()
+        gdino_conf = gdino_conf[index]
+        phrases = [phrases[i] for i in index]
 
         # logging.info("Annotate the scaled image with bounding boxes, confidence scores, and labels, and display")
         bbox_annotated_pil = annotate(overlay_masks(img_pil, masks), image_pil_bboxes, gdino_conf, phrases)
