@@ -137,6 +137,7 @@ def combine_masks(gt_masks):
     e.g. 8*480*640 tensor becomes a numpy array of 480*640.
     [[1,0,0], [0,1,0]] = > [1,2,0].
     """
+    gt_masks = torch.flip(gt_masks, dims=(0,))
     num, h, w = gt_masks.shape
     # bin_mask = np.zeros((h, w))
     bin_mask = torch.zeros((h,w), device=gt_masks.device)
