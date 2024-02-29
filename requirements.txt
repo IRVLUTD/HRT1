@@ -6,3 +6,5 @@ regex
 torch
 torchvision
 absl-py
+open3d
+scikit-image

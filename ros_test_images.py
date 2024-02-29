@@ -11,7 +11,7 @@ import ros_numpy
 from PIL import Image as PILImg
 from matplotlib import pyplot as plt
 from sensor_msgs.msg import Image, CameraInfo
-from robokit.ObjDetection import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 lock = threading.Lock()
 

@@ -1,7 +1,7 @@
 from absl import app, logging
 from PIL import Image as PILImg
 from robokit.utils import annotate, overlay_masks
-from robokit.ObjDetection import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 
 def main(argv):
     # Path to the input image

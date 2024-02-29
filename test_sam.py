@@ -2,7 +2,7 @@ import numpy as np
 from absl import app, logging
 from PIL import Image as PILImg
 from robokit.utils import overlay_masks
-from robokit.ObjDetection import SegmentAnythingPredictor
+from robokit.perception import SegmentAnythingPredictor
 
 def main(argv):
     # Path to the input image

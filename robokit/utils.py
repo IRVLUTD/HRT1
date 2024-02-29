@@ -3,9 +3,44 @@ import random
 import logging
 import torch
 import numpy as np
-from typing import List
 import supervision as sv
-from PIL import Image as PILImg, ImageDraw
+import matplotlib.pyplot as plt
+from PIL import (Image as PILImg, ImageDraw)
+
+
+def apply_matplotlib_colormap(depth_pil, colormap_name='inferno'):
+    """
+    Apply a matplotlib colormap to the input depth image.
+
+    Args:
+        depth_pil (PIL.Image): Input depth map image.
+        colormap_name (str): Name of the matplotlib colormap to use. Default is 'inferno'.
+
+    Returns:
+        PIL.Image: Image object representing the depth map with colormap.
+    """
+    try:
+        # Convert PIL image to numpy array
+        depth_array = np.array(depth_pil)
+
+        # Normalize depth values to range [0, 1]
+        depth_normalized = (depth_array - depth_array.min()) / (depth_array.max() - depth_array.min())
+
+        # Create colormap
+        cmap = plt.get_cmap(colormap_name)
+
+        # Apply the colormap to depth values
+        colored_depth = (cmap(depth_normalized) * 255).astype(np.uint8)
+
+        # Convert numpy array to PIL image
+        colored_depth_pil = PILImg.fromarray(colored_depth)
+
+        return colored_depth_pil
+
+    except Exception as e:
+        # Log error
+        print(f"An error occurred: {e}")
+        raise e
 
 
 def file_exists(file_path):

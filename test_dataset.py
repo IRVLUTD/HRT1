@@ -12,7 +12,7 @@ from matplotlib import pyplot as plt
 import scipy
 
 from robokit.datasets.factory import get_dataset
-from robokit.ObjDetection import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from robokit.evaluation import multilabel_metrics
 

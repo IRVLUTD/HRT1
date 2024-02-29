@@ -15,30 +15,162 @@ from groundingdino.util.utils import clean_state_dict
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
+from transformers import AutoImageProcessor, AutoModelForDepthEstimation
+
+
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
 warnings.filterwarnings("ignore")
 
 
-class Logger:
+class Logger(object):
     """
-    This is a logger class
+    This is a logger class.
+
+    Attributes:
+        logger: Logger instance for logging.
     """
     def __init__(self):
+        """
+        Initializes the Logger class.
+        """
+        super(Logger, self).__init__()
+
         # Initialize logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
-    
 
-class ObjectPredictor(Logger):
+
+class Device(object):
+    """
+    This is a device class.
+
+    Attributes:
+        device (str): The device type ('cuda' or 'cpu').
+        logger: Logger instance for logging.
+    """
+    def __init__(self):
+        """
+        Initializes the Device class.
+        """
+        super(Device, self).__init__()
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Initialize logging
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+
+
+class CommonContextObject(Logger, Device):
+    """
+    This is a common context object class.
+
+    Attributes:
+        logger: Logger instance for logging.
+        device (str): The device type ('cuda' or 'cpu').
+    """
+    def __init__(self):
+        """
+        Initializes the CommonContextObject class.
+        """
+        super(CommonContextObject, self).__init__()
+
+
+class DepthPredictor(CommonContextObject):
+    """
+    Root class for depth prediction.
+    All other depth prediction classes should inherit this.
+
+    Attributes:
+        logger: Logger instance for logging errors.
+    """
+    def __init__(self):
+        """
+        Initializes the DepthPredictor class.
+        """
+        super(DepthPredictor, self).__init__()
+
+    def predict(self):
+        """
+        Predict method for depth prediction.
+        Raises NotImplementedError as it should be implemented by subclasses.
+
+        Raises:
+            NotImplementedError: If the method is not implemented by subclasses.
+        """
+        try:
+            raise NotImplementedError("predict method must be implemented by subclasses")
+        except NotImplementedError as e:
+            self.logger.error(f"Error in predict method: {e}")
+            raise e
+
+
+class DepthAnythingPredictor(DepthPredictor):
+    """
+    A predictor class for depth estimation using a pre-trained model.
+
+    Attributes:
+        image_processor: Pre-trained image processor.
+        model: Pre-trained depth estimation model.
+        logger: Logger instance for logging errors.
+    """
+    def __init__(self):
+        """
+        Initializes the DepthAnythingPredictor class.
+        """
+        super(DepthPredictor, self).__init__() 
+        self.image_processor = AutoImageProcessor.from_pretrained("LiheYoung/depth-anything-small-hf")
+        self.model = AutoModelForDepthEstimation.from_pretrained("LiheYoung/depth-anything-small-hf")
+        self.logger = logging.getLogger(__name__)
+
+    def predict(self, img_pil):
+        """
+        Predicts depth from an input image.
+
+        Args:
+            PIL Image: Input image.
+
+        Returns:
+            PIL Image: Predicted depth map as a PIL image.
+            numpy.ndarray: Predicted depth values as a numpy array.
+        """
+        try:
+            image = img_pil.convert('RGB')
+
+            # prepare image for the model
+            inputs = self.image_processor(images=image, return_tensors="pt")
+
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                predicted_depth = outputs.predicted_depth
+
+            # interpolate to original size
+            prediction = torch.nn.functional.interpolate(
+                predicted_depth.unsqueeze(1),
+                size=image.size[::-1],
+                mode="bicubic",
+                align_corners=False,
+            )
+
+            # visualize the prediction
+            output = prediction.squeeze().cpu().numpy()
+            formatted = (output * 255 / np.max(output)).astype("uint8")
+            depth_pil = PILImg.fromarray(formatted)
+            return depth_pil, output
+
+        except Exception as e:
+            self.logger.error(f"Error predicting depth: {e}")
+            raise e
+
+class ObjectPredictor(CommonContextObject):
     """
     Root class for object predicton
     All other object prediction classes should inherit this
     """
     def __init__(self):
-        super().__init__()
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        super(ObjectPredictor, self).__init__()
     
+
     def bbox_to_scaled_xyxy(self, bboxes: torch.tensor, img_w, img_h):
         """
         Convert bounding boxes to scaled xyxy format.
@@ -69,7 +201,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
     Hope is that these cropped bboxes when used with OpenAI CLIP yields good classification results.
     """
     def __init__(self):
-        super().__init__()
+        super(GroundingDINOObjectPredictor, self).__init__()
         self.ckpt_repo_id = "ShilongLiu/GroundingDINO"
         self.ckpt_filenmae = "groundingdino_swint_ogc.pth"
         self.config_file = "robokit/cfg/gdino/GroundingDINO_SwinT_OGC.py"
@@ -192,7 +324,7 @@ class SegmentAnythingPredictor(ObjectPredictor):
         """
         Initialize the SegmentAnythingPredictor object.
         """
-        super().__init__()
+        super(SegmentAnythingPredictor, self).__init__()
         self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
         self.mask_generator = SamAutomaticMaskGenerator(self.sam)  # generate masks for entire image
         self.sam.to(device=self.device)
@@ -240,13 +372,13 @@ class SegmentAnythingPredictor(ObjectPredictor):
             return None, None
 
 
-class ZeroShotClipPredictor(Logger):
+class ZeroShotClipPredictor(CommonContextObject):
     def __init__(self):
-        super().__init__()
-
+        super(ZeroShotClipPredictor, self).__init__()
+        
         # Load the CLIP model
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model, self.preprocess = clip.load('ViT-L/14@336px', self.device)
+        self.model.eval()
 
     def get_features(self, images, text_prompts):
         """
