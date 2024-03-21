@@ -1,3 +1,7 @@
+# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
+# This work is licensed under the MIT License.
+
+
 import os
 import clip
 import torch
@@ -5,6 +9,9 @@ import logging
 import warnings
 import numpy as np
 from PIL import Image as PILImg
+import torchvision.transforms as tvT
+from featup.util import norm, unnorm
+from featup.plotting import plot_feats
 from torchvision.ops import box_convert
 from huggingface_hub import hf_hub_download
 from groundingdino.models import build_model
@@ -75,6 +82,35 @@ class CommonContextObject(Logger, Device):
         super(CommonContextObject, self).__init__()
 
 
+class FeatureUpSampler(CommonContextObject):
+    """
+    Root class for feature upsampling.
+    All other feature upsampling classes should inherit this.
+
+    Attributes:
+        logger: Logger instance for logging errors.
+    """
+    def __init__(self):
+        """
+        Initializes the DepthPredictor class.
+        """
+        super(FeatureUpSampler, self).__init__()
+
+    def upsample(self):
+        """
+        Upsample method for feature upscaling.
+        Raises NotImplementedError as it should be implemented by subclasses.
+
+        Raises:
+            NotImplementedError: If the method is not implemented by subclasses.
+        """
+        try:
+            raise NotImplementedError("Upsample method must be implemented by subclasses")
+        except NotImplementedError as e:
+            self.logger.error(f"Error in upsample method: {e}")
+            raise e
+
+
 class DepthPredictor(CommonContextObject):
     """
     Root class for depth prediction.
@@ -101,6 +137,69 @@ class DepthPredictor(CommonContextObject):
             raise NotImplementedError("predict method must be implemented by subclasses")
         except NotImplementedError as e:
             self.logger.error(f"Error in predict method: {e}")
+            raise e
+
+
+class FeatUp(FeatureUpSampler):
+    """
+    A class for upsampling features using a pre-trained backbone model.
+
+    Attributes:
+        input_size (int): Input size of the images.
+        backbone_alias (str): Alias of the pre-trained backbone model.
+        upsampler (torch.nn.Module): Feature upsampling module.
+        logger (logging.Logger): Logger object for logging.
+    """
+
+    def __init__(self, backbone_alias, input_size, visualize_output=False):
+        """
+        Initializes the FeatUp class.
+
+        Args:
+            backbone_alias (str): Alias of the pre-trained backbone model.
+            input_size (int): Input size of the images.
+        """
+        super(FeatUp, self).__init__()
+        self.input_size = input_size
+        self.backbone_alias = backbone_alias
+        self.visualize_output = visualize_output
+        self.img_transform = tvT.Compose([
+            tvT.Resize(self.input_size),
+            tvT.CenterCrop((self.input_size, self.input_size)),
+            tvT.ToTensor(),
+            norm
+        ])
+        try:
+            self.upsampler = torch.hub.load("mhamilton723/FeatUp", self.backbone_alias).to(self.device)
+        except Exception as e:
+            logging.error(f"Error loading FeatUp model: {e}")
+            raise e
+        self.logger = logging.getLogger(__name__)
+
+    def upsample(self, image_tensor):
+        """
+        Upsamples the features of encoded input image tensor.
+
+        Args:
+            image_tensor (torch.Tensor): Input image tensor.
+
+        Returns:
+            Tuple: A tuple containing the original image tensor, backbone features, and upsampled features.
+        """
+        try:
+            image_tensor = image_tensor.to(self.device)
+            upsampled_features = self.upsampler(image_tensor) # upsampled features using backbone features; high resolution
+            backbone_features = self.upsampler.model(image_tensor) # backbone features; low resolution
+            orig_image = unnorm(image_tensor)
+            batch_size = orig_image.shape[0]
+            if self.visualize_output:
+                logging.info("Plot input image with backbone and upsampled output")
+                for i in range(batch_size):
+                    plot_feats(orig_image[i], backbone_features[i], upsampled_features[i])
+            return orig_image, backbone_features, upsampled_features
+
+        except Exception as e:
+            self.logger.error(f"Error during feature upsampling: {e}")
             raise e
 
 

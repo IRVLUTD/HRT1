@@ -6,6 +6,7 @@ A toolkit for robotic tasks
 - Zero-shot text-to-bbox approach for object detection using GroundingDINO.
 - Zero-shot bbox-to-mask approach for object detection using SegmentAnything (MobileSAM).
 - Zero-shot image-to-depth approach for depth estimation using Depth Anything.
+- Zero-shot feature upsampling using FeatUp.
 
 ## Getting Started
 
@@ -29,11 +30,13 @@ NameError: name '_C' is not defined
 ```
 
 ## Usage
-- SAM: [`test_sam.py`](test_sam.py)
-- GroundingDINO + SAM: [`test_gdino_sam.py`](test_gdino_sam.py)
-- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test_gdino_sam_clip.py)
-- Depth Anything: [`test_depth_anything.py`](test_depth_anything.py)
-- Test Datasets: [`test_dataset.py`](test_dataset.py)
+- Note: All test scripts are located in the [`test`](test) directory. Place the respective test scripts in the root directory to run.
+- SAM: [`test_sam.py`](test/test_sam.py)
+- GroundingDINO + SAM: [`test_gdino_sam.py`](test/test_gdino_sam.py)
+- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test/test_gdino_sam_clip.py)
+- Depth Anything: [`test_depth_anything.py`](test/test_depth_anything.py)
+- FeatUp: [`test_featup.py`](test/test_featup.py)
+- Test Datasets: [`test_dataset.py`](test/test_dataset.py)
   - `python test_dataset.py --gpu 0 --dataset <ocid_object_test/osd_object_test>`
 
 ## Roadmap
@@ -44,12 +47,13 @@ Future goals for this project include:
 
 ## Acknowledgments
 
-This project is based on the following repositories:
+This project is based on the following repositories (license check mandatory):
 - [CLIP](https://github.com/openai/CLIP)
 - [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
 - [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
 - [DepthAnything](https://huggingface.co/docs/transformers/main/en/model_doc/depth_anything#transformers.DepthAnythingForDepthEstimation)
+- [FeatUp](https://github.com/mhamilton723/FeatUp)
 
 
 ## License
-This project is licensed under the MIT License
+This project is licensed under the MIT License. However, before using this tool please check the respective works for specific licenses.

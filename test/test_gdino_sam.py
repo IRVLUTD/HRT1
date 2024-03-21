@@ -1,3 +1,7 @@
+# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
+# This work is licensed under the MIT License.
+
+
 from absl import app, logging
 from PIL import Image as PILImg
 from robokit.utils import annotate, overlay_masks
