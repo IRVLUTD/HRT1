@@ -173,9 +173,8 @@ class FeatUp(FeatureUpSampler):
         try:
             self.upsampler = torch.hub.load("mhamilton723/FeatUp", self.backbone_alias).to(self.device)
         except Exception as e:
-            logging.error(f"Error loading FeatUp model: {e}")
+            self.logger.error(f"Error loading FeatUp model: {e}")
             raise e
-        self.logger = logging.getLogger(__name__)
 
     def upsample(self, image_tensor):
         """
@@ -194,7 +193,7 @@ class FeatUp(FeatureUpSampler):
             orig_image = unnorm(image_tensor)
             batch_size = orig_image.shape[0]
             if self.visualize_output:
-                logging.info("Plot input image with backbone and upsampled output")
+                self.logger.info("Plot input image with backbone and upsampled output")
                 for i in range(batch_size):
                     plot_feats(orig_image[i], backbone_features[i], upsampled_features[i])
             return orig_image, backbone_features, upsampled_features
