@@ -14,7 +14,6 @@ from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 
 
@@ -161,6 +160,7 @@ class DepthAnythingPredictor(DepthPredictor):
         except Exception as e:
             self.logger.error(f"Error predicting depth: {e}")
             raise e
+
 
 class ObjectPredictor(CommonContextObject):
     """

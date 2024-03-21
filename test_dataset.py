@@ -2,14 +2,14 @@
 
 """Test a Gounding SAM network on an image database."""
 
-import argparse
-import os, sys
-import numpy as np
-import torch
 import time
+import scipy
+import torch
+import os, sys
+import argparse
+import numpy as np
 from PIL import Image as PILImg
 from matplotlib import pyplot as plt
-import scipy
 
 from robokit.datasets.factory import get_dataset
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor

@@ -2,17 +2,15 @@
 
 """Test GroundingSAM on ros images"""
 
-import message_filters
-import cv2
-import threading
-import numpy as np
 import rospy
+import threading
 import ros_numpy
+import numpy as np
+import message_filters
 from PIL import Image as PILImg
-from matplotlib import pyplot as plt
 from sensor_msgs.msg import Image, CameraInfo
-from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
+from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 lock = threading.Lock()
 
 

@@ -53,7 +53,11 @@ def file_exists(file_path):
     Returns:
     - bool: True if the file exists, False otherwise.
     """
-    return os.path.exists(file_path)
+    try:
+        return os.path.exists(file_path)
+    except Exception as e:
+        logging.error(f"Error checking file existence: {e}")
+        raise e
 
 
 def crop_images(original_image, bounding_boxes):
@@ -61,7 +65,7 @@ def crop_images(original_image, bounding_boxes):
     Crop the input image using the provided bounding boxes.
 
     Parameters:
-    - original_image (PIL.Image.Image): Original input image.
+    - original_image (PIL.Image): Original input image.
     - bounding_boxes (list): List of bounding boxes [x_min, y_min, x_max, y_max].
 
     Returns:
@@ -96,7 +100,7 @@ def annotate(image_source, boxes, logits, phrases):
     Annotate image with bounding boxes, logits, and phrases.
 
     Parameters:
-    - image_source (PIL.Image.Image): Input image source.
+    - image_source (PIL.Image): Input image source.
     - boxes (torch.tensor): Bounding boxes in xyxy format.
     - logits (list): List of confidence logits.
     - phrases (list): List of phrases.
@@ -119,6 +123,7 @@ def annotate(image_source, boxes, logits, phrases):
         logging.error(f"Error during annotation: {e}")
         raise e
 
+
 def draw_mask(mask, draw, random_color=False):
     """
     Draw a segmentation mask on an image.
@@ -131,18 +136,23 @@ def draw_mask(mask, draw, random_color=False):
     Returns:
     - None
     """
-    # Define the color for the mask
-    if random_color:
-        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 153)
-    else:
-        color = (30, 144, 255, 153)
+    try:
+        # Define the color for the mask
+        if random_color:
+            color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 153)
+        else:
+            color = (30, 144, 255, 153)
 
-    # Get the coordinates of non-zero elements in the mask
-    nonzero_coords = np.transpose(np.nonzero(mask))
+        # Get the coordinates of non-zero elements in the mask
+        nonzero_coords = np.transpose(np.nonzero(mask))
 
-    # Draw each non-zero coordinate on the image
-    for coord in nonzero_coords:
-        draw.point(coord[::-1], fill=color)
+        # Draw each non-zero coordinate on the image
+        for coord in nonzero_coords:
+            draw.point(coord[::-1], fill=color)
+
+    except Exception as e:
+        logging.error(f"Error drawing mask: {e}")
+        raise e
 
 
 def overlay_masks(image_pil: PILImg, masks):
@@ -156,14 +166,19 @@ def overlay_masks(image_pil: PILImg, masks):
     Returns:
     - PIL.Image: The image with overlayed segmentation masks.
     """
-    mask_image = PILImg.new('RGBA', image_pil.size, color=(0, 0, 0, 0))
-    mask_draw = ImageDraw.Draw(mask_image)
-    for mask in masks:
-        draw_mask(mask[0].cpu().numpy(), mask_draw, random_color=True)
+    try:
+        mask_image = PILImg.new('RGBA', image_pil.size, color=(0, 0, 0, 0))
+        mask_draw = ImageDraw.Draw(mask_image)
+        for mask in masks:
+            draw_mask(mask[0].cpu().numpy(), mask_draw, random_color=True)
 
-    image_pil = image_pil.convert('RGBA')
-    image_pil.alpha_composite(mask_image)
-    return image_pil.convert('RGB')
+        image_pil = image_pil.convert('RGBA')
+        image_pil.alpha_composite(mask_image)
+        return image_pil.convert('RGB')
+
+    except Exception as e:
+        logging.error(f"Error overlaying masks: {e}")
+        raise e
 
 
 def combine_masks(gt_masks):
@@ -171,27 +186,55 @@ def combine_masks(gt_masks):
     Combine several bit masks [N, H, W] into a mask [H,W],
     e.g. 8*480*640 tensor becomes a numpy array of 480*640.
     [[1,0,0], [0,1,0]] = > [1,2,0].
+
+    Args:
+        gt_masks (torch.Tensor): Tensor of shape [N, H, W] representing multiple bit masks.
+
+    Returns:
+        torch.Tensor: Combined mask of shape [H, W].
     """
-    gt_masks = torch.flip(gt_masks, dims=(0,))
-    num, h, w = gt_masks.shape
-    # bin_mask = np.zeros((h, w))
-    bin_mask = torch.zeros((h,w), device=gt_masks.device)
-    num_instance = len(gt_masks)
-    # if there is not any instance, just return a mask full of 0s.
-    if num_instance == 0:
+    try:
+        gt_masks = torch.flip(gt_masks, dims=(0,))
+        num, h, w = gt_masks.shape
+        bin_mask = torch.zeros((h, w), device=gt_masks.device)
+        num_instance = len(gt_masks)
+
+        # if there is not any instance, just return a mask full of 0s.
+        if num_instance == 0:
+            return bin_mask
+
+        for m, object_label in zip(gt_masks, range(1, 1 + num_instance)):
+            label_pos = torch.nonzero(m, as_tuple=True)
+            bin_mask[label_pos] = object_label
         return bin_mask
 
-    for m, object_label in zip(gt_masks, range(1, 1+num_instance)):
-        label_pos = torch.nonzero(m, as_tuple=True)
-        bin_mask[label_pos] = object_label
-    return bin_mask
+    except Exception as e:
+        logging.error(f"Error combining masks: {e}")
+        raise e
 
 
 def filter_large_boxes(boxes, w, h, threshold=0.5):
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
-    area = (x2 - x1) * (y2 - y1)
-    index = area < (w * h) * threshold
-    return boxes[index], index.cpu()
+    """
+    Filter out large boxes from a list of bounding boxes based on a threshold.
+
+    Args:
+        boxes (torch.Tensor): Bounding boxes of shape [N, 4].
+        w (int): Width of the image.
+        h (int): Height of the image.
+        threshold (float, optional): Threshold value for filtering large boxes. Defaults to 0.5.
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Filtered bounding boxes and corresponding indices.
+    """
+    try:
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = boxes[:, 2]
+        y2 = boxes[:, 3]
+        area = (x2 - x1) * (y2 - y1)
+        index = area < (w * h) * threshold
+        return boxes[index], index.cpu()
+
+    except Exception as e:
+        logging.error(f"Error filtering large boxes: {e}")
+        raise e

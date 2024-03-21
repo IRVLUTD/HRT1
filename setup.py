@@ -10,45 +10,54 @@ from absl import app
 
 
 class FileFetch(install):
-
+    """
+    Custom setuptools command to fetch required files from external sources.
+    """
     def run(self):
+        """
+        Execute the command to fetch required files.
+        """
         install.run(self)
+        try:
+            # Install the dependency from the Git repository
+            subprocess.run([
+                "pip", "install", "-U",
+                'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
+                'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
+                # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
+                'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed'
+            ])
 
-        # Install the dependency from the Git repository
-        subprocess.run([
-            "pip", "install", "-U",
-            'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
-            'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
-            # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
-            'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed'
-        ])
+            # subprocess.run([
+            #     "conda", "install", "-y", "pytorch", "torchvision", "torchaudio", "pytorch-cuda=11.7", "-c", "pytorch", "-c", "nvidia"
+            # ])
 
-        # subprocess.run([
-        #     "conda", "install", "-y", "pytorch", "torchvision", "torchaudio", "pytorch-cuda=11.7", "-c", "pytorch", "-c", "nvidia"
-        # ])
+            subprocess.call
 
-        subprocess.call
+            # Download GroundingDINO checkpoint
+            self.download_pytorch_checkpoint(
+                "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
+                os.path.join(os.getcwd(), "ckpts", "gdino"),
+                "gdino.pth"
+            )
+            
+            # Download SAM checkpoint
+            # self.download_pytorch_checkpoint(
+            #     "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
+            #     os.path.join(os.getcwd(), "ckpts", "sam"),
+            #     "vit_h.pth"
+            # )
 
-        # Download GroundingDINO checkpoint
-        self.download_pytorch_checkpoint(
-            "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
-            os.path.join(os.getcwd(), "ckpts", "gdino"),
-            "gdino.pth"
-        )
-        
-        # Download SAM checkpoint
-        # self.download_pytorch_checkpoint(
-        #     "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
-        #     os.path.join(os.getcwd(), "ckpts", "sam"),
-        #     "vit_h.pth"
-        # )
-
-        # Download SAM checkpoint
-        self.download_pytorch_checkpoint(
-            "https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt",
-            os.path.join(os.getcwd(), "ckpts", "mobilesam"),
-            "vit_t.pth"
-        )
+            # Download SAM checkpoint
+            self.download_pytorch_checkpoint(
+                "https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.pt",
+                os.path.join(os.getcwd(), "ckpts", "mobilesam"),
+                "vit_t.pth"
+            )
+        except Exception as e:
+            # Log error
+            print(f"An error occurred: {e}")
+            raise e
 
 
     def download_pytorch_checkpoint(self, pth_url: str, save_path: str, renamed_file: str):
@@ -134,6 +143,7 @@ def run_setup(argv):
         },
         package_data={'gdino_cfg': ["robokit/cfg/gdino/GroundingDINO_SwinT_OGC.py"]}
     )
+
 
 if __name__ == "__main__":
     app.run(run_setup)
