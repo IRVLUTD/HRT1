@@ -1,6 +1,6 @@
-# Copyright (c) 2024 Jishnu Jaykumar Padalunkal. All rights reserved.
-# This work is licensed under the MIT License.
-
+# (c) 2024 Jishnu Jaykumar Padalunkal.
+# Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
+# Please check the licenses of the respective works utilized here before using this script.
 
 from absl import (app, logging)
 from PIL import Image as PILImg
@@ -29,13 +29,13 @@ def main(argv):
 
         depth_to_colomap_pil.show()
 
-
     except Exception as e:
         # Handle unexpected errors
         print(f"An unexpected error occurred: {e}")
 
+
 if __name__ == "__main__":
     # Run the main function with the input image path
-    app.run(main, ['imgs/irvl-clutter-test.png'])
     # app.run(main, ['imgs/color-000078.png'])
     # app.run(main, ['imgs/color-000019.png'])
+    app.run(main, ['imgs/irvl-clutter-test.png'])
