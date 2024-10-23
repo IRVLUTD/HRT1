@@ -7,6 +7,7 @@ A toolkit for robotic tasks
 - Zero-shot bbox-to-mask approach for object detection using SegmentAnything (MobileSAM).
 - Zero-shot image-to-depth approach for depth estimation using Depth Anything.
 - Zero-shot feature upsampling using FeatUp.
+- Zero-shot DoorHandle detection using [iTeach](https://irvlutd.github.io/iTeach/)-[DHYOLO](https://huggingface.co/spaces/IRVLUTD/DH-YOLO) model
 
 ## Getting Started
 
@@ -36,6 +37,7 @@ NameError: name '_C' is not defined
 - GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test/test_gdino_sam_clip.py)
 - Depth Anything: [`test_depth_anything.py`](test/test_depth_anything.py)
 - FeatUp: [`test_featup.py`](test/test_featup.py)
+- iTeach-DHYOLO: [`test_dhyolo.py`](test/test_dhyolo.py)
 - Test Datasets: [`test_dataset.py`](test/test_dataset.py)
   - `python test_dataset.py --gpu 0 --dataset <ocid_object_test/osd_object_test>`
 
@@ -53,6 +55,7 @@ This project is based on the following repositories (license check mandatory):
 - [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
 - [DepthAnything](https://huggingface.co/docs/transformers/main/en/model_doc/depth_anything#transformers.DepthAnythingForDepthEstimation)
 - [FeatUp](https://github.com/mhamilton723/FeatUp)
+- [iTeach](https://irvlutd.github.io/iTeach/)-[DHYOLO](https://huggingface.co/spaces/IRVLUTD/DH-YOLO)
 
 
 ## License

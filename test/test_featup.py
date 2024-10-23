@@ -16,7 +16,7 @@ def main(argv):
         logging.info("Initialize object detectors")
         # backbone_alias options: {'resnet', 'vit', 'clip', 'dino16', 'dinov2'}
         # the input image will be resized to input size
-        pix_encoder = FeatUp(backbone_alias="dinov2", input_size=224, visualize_output=True)
+        pix_encoder = FeatUp(backbone_alias="dinov2", input_size=252, visualize_output=True)
 
         logging.info("Open the image and convert to RGB format")
         image_pil = PILImg.open(image_path).convert("RGB")
