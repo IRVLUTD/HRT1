@@ -36,7 +36,7 @@ class SaveData:
             self.main_dir_name = os.path.join(os.getcwd(), current_time)
         else:
             self.main_dir_name = os.path.join(os.getcwd(), self.task_name.lower().replace(' ','_'))
-        self.color_dir_name = os.path.join(self.main_dir_name, "color")
+        self.color_dir_name = os.path.join(self.main_dir_name, "rgb")
         self.depth_dir_name = os.path.join(self.main_dir_name, "depth")
         self.pose_dir_name = os.path.join(self.main_dir_name, "pose")
         #self.map_dir_name = os.path.join(self.main_dir_name, "map")
@@ -50,14 +50,14 @@ class SaveData:
         data_count = 0
         while not rospy.is_shutdown():
             rgb, depth, RT_camera, RT_laser, robot_velocity, RT_goal = self.listener.get_data_to_save()
-            np.savez("{}_pose.npz".format(os.path.join(self.pose_dir_name, "{:06d}".format(data_count))), RT_camera=RT_camera, robot_velocity=robot_velocity, RT_goal=RT_goal)
+            np.savez("{}.npz".format(os.path.join(self.pose_dir_name, "{:06d}".format(data_count))), RT_camera=RT_camera, robot_velocity=robot_velocity, RT_goal=RT_goal)
             
             # For map, uncomment
             # rgb, depth, RT_camera, RT_laser, RT_base, robot_velocity, RT_goal, map_data = self.listener.get_data_to_save()
             # np.savez("{}_pose.npz".format(os.path.join(self.pose_dir_name, "{:06d}".format(data_count))), RT_camera=RT_camera, RT_base=RT_base, robot_velocity=robot_velocity, RT_goal=RT_goal)
             
-            cv2.imwrite("{}_color.png".format(os.path.join(self.color_dir_name, "{:06d}".format(data_count))), rgb)
-            cv2.imwrite("{}_depth.png".format(os.path.join(self.depth_dir_name, "{:06d}".format(data_count))), depth)
+            cv2.imwrite("{}.jpg".format(os.path.join(self.color_dir_name, "{:06d}".format(data_count))), rgb)
+            cv2.imwrite("{}.jpg".format(os.path.join(self.depth_dir_name, "{:06d}".format(data_count))), depth)
             #cv2.imwrite("{}_map.png".format(os.path.join(self.map_dir_name, "{:06d}".format(data_count))), map_data.astype(np.uint8))
             rospy.sleep(self.time_delay)
             data_count += 1

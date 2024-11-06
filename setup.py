@@ -167,7 +167,7 @@ class FileFetch(install):
             logging.info("Attempting to download PyTorch checkpoint from: %s", pth_url)
 
 
-#            response = requests.get(pth_url, stream=True)
+            response = requests.get(pth_url, stream=True)
             response.raise_for_status()  # Raise an HTTPError for bad responses
 
             total_size = int(response.headers.get('content-length', 0))
