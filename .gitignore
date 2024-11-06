@@ -1,4 +1,5 @@
-robokit/sam2/
+*_out
+robokit/sam2
 iTeach/
 data/
 results/
