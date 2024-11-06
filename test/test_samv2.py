@@ -30,5 +30,5 @@ if __name__ == "__main__":
     # Run the main function with the input video dir path containing jpg frame images
     app.run(
         main, 
-        ['imgs/color.jpg']
+        ['imgs/irvl-whiteboard-write-and-erase']
     )
