@@ -1,6 +1,8 @@
-# (c) 2024 Jishnu Jaykumar Padalunkal.
+#----------------------------------------------------------------------------------------------------
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
 # Please check the licenses of the respective works utilized here before using this script.
+# 🖋️ Jishnu Jaykumar Padalunkal (2024).
+#----------------------------------------------------------------------------------------------------
 
 import os
 import requests
@@ -23,6 +25,8 @@ class FileFetch(install):
         """
         install.run(self)
 
+        robokit_root_dir = os.getcwd()
+
         # Install the dependency from the Git repository
         subprocess.run([
             "pip", "install", "-U",
@@ -35,16 +39,39 @@ class FileFetch(install):
 
 
         # Step DHYOLO.1: Clone the DH-YOLO repository
+        # try:
+        #     subprocess.run(["git", "clone", "https://github.com/IRVLUTD/iTeach"], check=True)
+        # except:
+        #     pass
+
+        # Step DHYOLO.2: Copy the required folder
+        # subprocess.run(["cp", "-r", "iTeach/toolkit/iteach_toolkit", "robokit"], check=True)
+
+        # # Step DHYOLO.3: Copy the required folder
+        # subprocess.run(["rm", "-rf", "iTeach"], check=True)
+
+
+
+        # Step SAMv2.1: Clone the repository
+        samv2_dir = os.path.join(robokit_root_dir, "robokit", "sam2")
+        os.makedirs(samv2_dir, exist_ok=True)
         try:
-            subprocess.run(["git", "clone", "https://github.com/IRVLUTD/iTeach"], check=True)
+            subprocess.run(["git", "clone", "https://github.com/facebookresearch/sam2", samv2_dir], check=True)
         except:
             pass
 
-        # Step DHYOLO.2: Copy the required folder
-        subprocess.run(["cp", "-r", "iTeach/toolkit/iteach_toolkit", "robokit"], check=True)
+        # Step SAMv2.2: cd to samv2 and checkout the desired commit branch
+        os.chdir(samv2_dir)
+        subprocess.run(["git", "checkout", "--branch", "c2ec8e14a185632b0a5d8b161928ceb50197eddc"])
 
-        # Step DHYOLO.3: Copy the required folder
-        subprocess.run(["rm", "-rf", "iTeach"], check=True)
+        # Step SAMv2.3: Use sed to comment out line 171 (to get rid of py>=3.10)
+        subprocess.run(["sed", "-i", "171s/^/#/", "setup.py"], check=True)
+
+        # Step SAMv2.4: Install samv2
+        subprocess.run(["python", "setup.py", "install"], check=True)
+
+        # Step SAMv2.5: move to robokit root directory
+        os.chdir(robokit_root_dir)        
 
         # subprocess.run([
         #     "conda", "install", "-y", "pytorch", "torchvision", "torchaudio", "pytorch-cuda=11.7", "-c", "pytorch", "-c", "nvidia"
@@ -52,12 +79,15 @@ class FileFetch(install):
 
         subprocess.call
 
+
         # Download GroundingDINO checkpoint
         self.download_pytorch_checkpoint(
             "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
             os.path.join(os.getcwd(), "ckpts", "gdino"),
             "gdino.pth"
         )
+        
+        ##############################################################################################################
 
         # Download SAM checkpoint
         # self.download_pytorch_checkpoint(
@@ -72,6 +102,8 @@ class FileFetch(install):
             os.path.join(os.getcwd(), "ckpts", "mobilesam"),
             "vit_t.pth"
         )
+        
+        ##############################################################################################################
 
         # Download DHYOLO checkpoints
         dhyolo_checkpoints = [
@@ -88,6 +120,24 @@ class FileFetch(install):
                 ckpt
             )
         
+        ##############################################################################################################
+        
+        # Download SAM2 checkpoint
+        self.download_pytorch_checkpoint(
+            "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
+            os.path.join(os.getcwd(), "ckpts", "samv2"),
+            "sam2.1_hiera_large.pth"
+        )
+
+        # Download SAM2 checkpoint yaml (exploiting the download ckpt method's download nature)
+        self.download_pytorch_checkpoint(
+            "https://raw.githubusercontent.com/facebookresearch/sam2/c2ec8e14a185632b0a5d8b161928ceb50197eddc/sam2/configs/sam2.1/sam2.1_hiera_l.yaml",
+            os.path.join(os.getcwd(), "ckpts", "samv2"),
+            "sam2.1_hiera_l.yaml"
+        )
+        
+        ##############################################################################################################
+
 
     def download_pytorch_checkpoint(self, pth_url: str, save_path: str, renamed_file: str):
         """
@@ -117,7 +167,7 @@ class FileFetch(install):
             logging.info("Attempting to download PyTorch checkpoint from: %s", pth_url)
 
 
-            response = requests.get(pth_url, stream=True)
+#            response = requests.get(pth_url, stream=True)
             response.raise_for_status()  # Raise an HTTPError for bad responses
 
             total_size = int(response.headers.get('content-length', 0))
