@@ -9,7 +9,7 @@ A toolkit for robotic tasks
 - Zero-shot feature upsampling using FeatUp.
 - Zero-shot DoorHandle detection using [iTeach](https://irvlutd.github.io/iTeach/)-[DHYOLO](https://huggingface.co/spaces/IRVLUTD/DH-YOLO) model
 - Zero-shot bbox-to-mask video propogation approach for object tracking using SegmentAnythingV2 (SAMv2).
-  - Note that SAMv2 only support mp4 or jpg files as of 11/06/2024
+  - Note that SAMv2 only supports mp4 or jpg files as of 11/06/2024
   - Currently only supports bbox prompt with all video frames stored as jpg files in a directory
   - If you have an mp4 file then extract individual frames as jpg and store in a directory
 
