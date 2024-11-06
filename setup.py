@@ -30,8 +30,21 @@ class FileFetch(install):
             'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
             'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
             # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
-            'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed'
+            'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed',
         ])
+
+
+        # Step DHYOLO.1: Clone the DH-YOLO repository
+        try:
+            subprocess.run(["git", "clone", "https://github.com/IRVLUTD/iTeach"], check=True)
+        except:
+            pass
+
+        # Step DHYOLO.2: Copy the required folder
+        subprocess.run(["cp", "-r", "iTeach/toolkit/iteach_toolkit", "robokit"], check=True)
+
+        # Step DHYOLO.3: Copy the required folder
+        subprocess.run(["rm", "-rf", "iTeach"], check=True)
 
         # subprocess.run([
         #     "conda", "install", "-y", "pytorch", "torchvision", "torchaudio", "pytorch-cuda=11.7", "-c", "pytorch", "-c", "nvidia"
@@ -45,7 +58,7 @@ class FileFetch(install):
             os.path.join(os.getcwd(), "ckpts", "gdino"),
             "gdino.pth"
         )
-        
+
         # Download SAM checkpoint
         # self.download_pytorch_checkpoint(
         #     "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
@@ -60,6 +73,21 @@ class FileFetch(install):
             "vit_t.pth"
         )
 
+        # Download DHYOLO checkpoints
+        dhyolo_checkpoints = [
+            "dh-yolo-v1-pb-ddf-524.pt",
+            "dh-yolo-exp27-pb-1008.pt",
+            "dh-yolo-exp-31-pl-1532.pt",
+            "dh-yolo-exp-31-pb-1532.pt"
+        ]
+
+        for ckpt in dhyolo_checkpoints:
+            self.download_pytorch_checkpoint(
+                f"https://huggingface.co/spaces/IRVLUTD/DH-YOLO/resolve/main/pretrained_ckpts/{ckpt}",
+                os.path.join(os.getcwd(), "ckpts", "dhyolo"),
+                ckpt
+            )
+        
 
     def download_pytorch_checkpoint(self, pth_url: str, save_path: str, renamed_file: str):
         """
