@@ -30,27 +30,10 @@ class FileFetch(install):
         # Install the dependency from the Git repository
         subprocess.run([
             "pip", "install", "-U",
-            'git+https://github.com/mhamilton723/FeatUp@c04e4c19945ce3e98a5488be948c7cc1fdcdacc6',
-            'git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33',
             'git+https://github.com/IDEA-Research/GroundingDINO.git@2b62f419c292ca9c518daae55512fabc3fead4a4',
             # 'git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588'
             'git+https://github.com/ChaoningZhang/MobileSAM@c12dd83cbe26dffdcc6a0f9e7be2f6fb024df0ed',
         ])
-
-
-        # Step DHYOLO.1: Clone the DH-YOLO repository
-        # try:
-        #     subprocess.run(["git", "clone", "https://github.com/IRVLUTD/iTeach"], check=True)
-        # except:
-        #     pass
-
-        # Step DHYOLO.2: Copy the required folder
-        # subprocess.run(["cp", "-r", "iTeach/toolkit/iteach_toolkit", "robokit"], check=True)
-
-        # # Step DHYOLO.3: Copy the required folder
-        # subprocess.run(["rm", "-rf", "iTeach"], check=True)
-
-
 
         # Step SAMv2.1: Clone the repository
         samv2_dir = os.path.join(robokit_root_dir, "robokit", "sam2")
@@ -102,23 +85,6 @@ class FileFetch(install):
             os.path.join(os.getcwd(), "ckpts", "mobilesam"),
             "vit_t.pth"
         )
-        
-        ##############################################################################################################
-
-        # Download DHYOLO checkpoints
-        dhyolo_checkpoints = [
-            "dh-yolo-v1-pb-ddf-524.pt",
-            "dh-yolo-exp27-pb-1008.pt",
-            "dh-yolo-exp-31-pl-1532.pt",
-            "dh-yolo-exp-31-pb-1532.pt"
-        ]
-
-        for ckpt in dhyolo_checkpoints:
-            self.download_pytorch_checkpoint(
-                f"https://huggingface.co/spaces/IRVLUTD/DH-YOLO/resolve/main/pretrained_ckpts/{ckpt}",
-                os.path.join(os.getcwd(), "ckpts", "dhyolo"),
-                ckpt
-            )
         
         ##############################################################################################################
         
