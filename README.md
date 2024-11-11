@@ -18,6 +18,12 @@ export CUDA_HOME=/usr/local/cuda
 # Run the setup script
 chmod +x ./setup_perception.sh
 ./setup_perception.sh
+
+# todo: need ot integrate hamer
+cd hamer;
+python demo.py \                                                                                                           (xpeng3.10) 
+--img_folder ../imgs/irvl-whiteboard-write-and-erase/ --out_folder irvl-whiteboard-write-and-erase-out \
+--batch_size=48 --side_view --save_mesh --full_frame
 ```
 
 ### Tools
