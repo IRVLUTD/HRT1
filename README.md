@@ -24,7 +24,7 @@ python perception_pipeline.py # hbhp+gdino+samv2
 ```
 
 ## Tools
-
+#### Note: To run, move all relevant scripts inside `scripts/` to project root folder
 - To view `.obj` files: 
   ```shell
   python scripts/vis_obj.py <path/to/.obj>
