@@ -40,10 +40,3 @@ python perception_pipeline.py
 
 - [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
-<<<<<<< HEAD
-=======
-# mm-demo
-Codebase for mobile manipulation demo
->>>>>>> d16771b... Initial commit
-=======
->>>>>>> 1ca98d1... fix merge with main issue
