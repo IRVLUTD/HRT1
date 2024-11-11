@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 # MM-Demo
 A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) framework.
@@ -37,3 +38,7 @@ python perception_pipeline.py
 
 - [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
+=======
+# mm-demo
+Codebase for mobile manipulation demo
+>>>>>>> d16771b... Initial commit
