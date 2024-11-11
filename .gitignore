@@ -1,3 +1,5 @@
+*irvl-whiteboard-write-and-erase-out/*
+_DATA
 rgb/
 *_out
 robokit/sam2
@@ -7,6 +9,9 @@ results/
 ckpts/
 imgs_dev/
 hf_gdino.py
+robokit/imgs
+robokit/imgs_dev/
+robokit/ckpts
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,32 +1,30 @@
-# mm-demo
-Codebase for XPENG 1-Shot Skill Learning
+
+# MM-Demo
+A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) framework.
 
 ## Setup
+
 ```sh
-# clone
+# Clone the repository
 git clone --recursive https://github.com/IRVLUTD/mm-demo && cd mm-demo
 
-# create conda env
-conda create -n 1-shot python=3.9
+# Create a conda environment
+conda create -n 1-shot python=3.10  # Python 3.10 required for samv2 and hamer dependencies
 conda activate 1-shot
 
-# make sure your CUDA_HOME env var is set
+# Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
 
-root_dir=$PWD
-
-# install dependencies
-conda install pytorch torchvision torchaudio pytorch-cuda -c pytorch -c nvidia # should install based on CUDA_HOME
-pip install -r requirements.txt
-
-# install robokit for gdino, samv2
-python setup.py install
-pip install --upgrade --force-reinstall hydra-core
-
-cd $root_dir
+# Run the setup script
+chmod +x ./setup_perception.sh
+./setup_perception.sh
 ```
 
+### Tools
+
+- To view `.obj` files: `python scripts/plot_obj.py <path/to/.obj>`
 
 ### Acknowledgments
+
 - [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)

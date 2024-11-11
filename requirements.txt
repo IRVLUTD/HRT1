@@ -20,3 +20,7 @@ transforms3d
 # HumanPoseHandBoxes
 # -------------------
 mediapipe
+
+# -------------------
+# Hamer
+# -------------------
