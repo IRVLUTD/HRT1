@@ -32,6 +32,9 @@ python perception_pipeline.py
 ### Tools
 
 - To view `.obj` files: `python scripts/plot_obj.py <path/to/.obj>`
+- Test gdino prompts: `python test_gdino_prompts.py --input_dir ./imgs/irvl-whiteboard-write-and-erase --text_prompt "black eraser"`
+- Test gdino + samv2: `python test_gdino_samv2.py --input_dir="imgs/irvl-whiteboard-write-and-erase" --text_prompt="black eraser" --save_interval=1` 
+  - Get bbox of the desired object from the first frame and then track them in the video frames using SAMv2  
 
 ### Acknowledgments
 
