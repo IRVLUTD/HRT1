@@ -1,6 +1,6 @@
 
 # MM-Demo
-A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) framework.
+A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) tool.
 
 ## Setup
 
