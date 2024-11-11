@@ -1,6 +1,6 @@
 *irvl-whiteboard-write-and-erase-out/*
 _DATA
-rgb/
+# rgb/
 # *_out
 robokit/sam2
 iTeach/
