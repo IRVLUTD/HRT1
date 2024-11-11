@@ -25,6 +25,7 @@ from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 from sam2.build_sam import build_sam2_video_predictor
 from matplotlib import (patches, pyplot as plt)
 from tqdm import tqdm
+import matplotlib.cm as cm
 
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
@@ -445,8 +446,7 @@ class SAM2VideoPredictor(ObjectPredictor):
             print(f"Error during segmentation: {e}")
             raise
 
-
-    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=30, save_output=True):
+    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True):
         """
         Propagate the segmentation mask across the entire video and optionally save the frames with masks to a subdirectory.
         
@@ -475,49 +475,79 @@ class SAM2VideoPredictor(ObjectPredictor):
             
             # Create output directory if save_output is True
             if save_output:
-                output_dir = os.path.join(os.path.dirname(video_dir), f"{os.path.basename(video_dir)}_out")
-                os.makedirs(output_dir, exist_ok=True)
+                output_dir = os.path.join(os.path.dirname(video_dir), "samv2", f"{os.path.basename(video_dir)}")
+                masks_dir = os.path.join(output_dir, "masks")
+                traj_overlayed_dir = os.path.join(output_dir, "traj_overlayed")
+                os.makedirs(masks_dir, exist_ok=True)
+                os.makedirs(traj_overlayed_dir, exist_ok=True)
+
+            # Initialize trajectory list
+            centroids = []
             
             # Propagate mask across video
             video_segments = {}
             for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
-                video_segments[out_frame_idx] = {
-                    out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
-                    for i, out_obj_id in enumerate(out_obj_ids)
-                }
+                for i, out_obj_id in enumerate(out_obj_ids):
+                    video_segments[out_frame_idx] = {out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()}
+                    # logging.info("Visualize and optionally save the results")
+                    plt.close("all")
             
-            logging.info("Visualize and optionally save the results")
-            plt.close("all")
-            for out_frame_idx in tqdm(range(0, len(frame_names), vis_frame_stride)):
-                plt.figure(figsize=(6, 4))
-                plt.title(f"Frame {out_frame_idx}")
-                img_path = os.path.join(video_dir, frame_names[out_frame_idx])
-                img = PILImg.open(img_path)
-                plt.imshow(img)
-                
-                # Draw bounding box
-                plt.gca().add_patch(plt.Rectangle(
-                    (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
-                    linewidth=2, edgecolor="red", facecolor="none"))
-                
-                # Show segmentation masks
-                for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                    self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
-                
-                # Turn off axis labels
-                plt.axis('off')
-                
-                # Save the result if save_output is True
-                if save_output:
-                    result_path = os.path.join(output_dir, f"{out_frame_idx:05d}.jpg")
-                    plt.savefig(result_path)
-                    plt.close()
-        
-            return frame_names, video_segments
-                
+                    plt.figure(figsize=(6, 4))
+                    plt.title(f"Frame {out_frame_idx}")
+                    img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                    img = PILImg.open(img_path)
+                    plt.imshow(img)
+                    
+                    # Draw bounding box
+                    plt.gca().add_patch(plt.Rectangle(
+                        (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
+                        linewidth=2, edgecolor="red", facecolor="none"))
+                    
+                    out_file_name = f"{out_frame_idx:06d}.jpg"
+
+                    # Show segmentation masks
+                    for out_obj_id, out_mask in video_segments[out_frame_idx].items():
+                        self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
+                        
+                        # Turn off axis labels
+                        plt.axis('off')
+                        
+                        # Save the mask overlayed image result if save_output is True
+                        if save_output:
+                            plt.savefig(os.path.join(masks_dir, out_file_name))
+                        
+                        centroid =  self.calculate_centroid(out_mask)
+                        centroids.append(centroid)
+
+                        # Plot the tracklet with centroids
+                        num_centroids = len(centroids)
+                        colormap = cm.get_cmap("plasma")  # Choose a colormap
+                        
+                        for idx, (x, y) in enumerate(centroids):
+                            color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
+                            plt.plot(x, y, 'o', color=color, markersize=5)
+                        
+                        # Save the trajectory overlayed image if save_output is True
+                        if save_output:
+                            traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
+                            plt.savefig(traj_result_path)
+                            plt.close()
+            
         except Exception as e:
-            print(f"Error during video mask propagation and saving: {e}")
-            raise
+            logging.error(f"Error during mask propagation: {e}")
+
+        return frame_names, video_segments
+
+    def calculate_centroid(self, mask):
+        """
+        Calculate the centroid of the object in the mask.
+        """
+        # Assuming the mask is a binary numpy array with the object pixels as 1
+        _, y_indices, x_indices = np.where(mask == 1)
+        centroid_x = np.mean(x_indices)
+        centroid_y = np.mean(y_indices)
+        return (centroid_x, centroid_y)
+
 
 
     def show_mask(self, mask, ax, obj_id=None, random_color=False):

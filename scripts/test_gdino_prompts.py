@@ -5,6 +5,7 @@
 #----------------------------------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 """
 This script performs object detection on a set of input images using Grounding DINO. 
 It annotates each image with detected bounding boxes, confidence scores, and labels based on a text prompt, 
@@ -48,6 +49,8 @@ The script follows these steps:
 """
 
 
+=======
+>>>>>>> 8164e1eb5c561360bcd81420944da8d454e0d129
 import os
 import numpy as np
 from absl import app, flags, logging
