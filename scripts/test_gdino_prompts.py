@@ -5,7 +5,6 @@
 #----------------------------------------------------------------------------------------------------
 
 
-<<<<<<< HEAD
 """
 This script performs object detection on a set of input images using Grounding DINO. 
 It annotates each image with detected bounding boxes, confidence scores, and labels based on a text prompt, 
@@ -49,8 +48,6 @@ The script follows these steps:
 """
 
 
-=======
->>>>>>> 8164e1eb5c561360bcd81420944da8d454e0d129
 import os
 import numpy as np
 from absl import app, flags, logging
@@ -78,8 +75,9 @@ def main(argv):
 
         # Set output directory in the parent directory of _image_root_dir
         parent_dir = os.path.dirname(_image_root_dir)
-        out_path_suffix = f"gdino/{text_prompt.lower().replace(' ', '_')}"
+        out_path_suffix = f"gdino/{os.path.basename(_image_root_dir)}/{text_prompt.lower().replace(' ', '_')}"
         out_path = os.path.join(parent_dir, out_path_suffix)
+
         os.makedirs(out_path, exist_ok=True)
 
         # Dummy mask for annotate func later on (we are using only GDINO and not SAM)

@@ -29,16 +29,21 @@ python perception_pipeline.py # hbhp+gdino+samv2
   ```shell
   python scripts/vis_obj.py <path/to/.obj>
   ```
+
 - Test gdino prompts:
   ```shell
   python test_gdino_prompts.py --input_dir ./imgs/irvl-whiteboard-write-and-erase --text_prompt "black eraser"
   # Output gets saved in `./imgs/gdino/irvl-whiteboard-write-and-erase/black_eraser`
   ```
+
 - Test gdino + samv2: (Get bbox of the desired object from the first frame and then track them in the video frames using SAMv2)
   ```shell
   python test_gdino_samv2.py --input_dir="imgs/irvl-whiteboard-write-and-erase" --text_prompt="black eraser" --save_interval=1
-  # Output gets saved in `./imgs/samv2/irvl-whiteboard-write-and-erase/masks` and `./imgs/samv2/irvl-whiteboard-write-and-erase/traj_overlayed`
+  # Output gets saved in 
+  # `./imgs/samv2/irvl-whiteboard-write-and-erase/masks` mask overlayed + init obj bbox
+  # `./imgs/samv2/irvl-whiteboard-write-and-erase/traj_overlayed` trajecetory + mask overlayed + init obj bbox
   ```
+
 - Test hamer:
   ```shell
   cd hamer
@@ -46,6 +51,7 @@ python perception_pipeline.py # hbhp+gdino+samv2
   --out_folder irvl-whiteboard-write-and-erase-test \
   --batch_size=48 --side_view --save_mesh --full_frame
   ``` 
+
 - Get right/left hand bboxes and meshes: [assumption: only one person exists in the scene]
   ```shell
   cd  hamer
