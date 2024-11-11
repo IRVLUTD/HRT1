@@ -33,7 +33,7 @@ python perception_pipeline.py
 
 - To view `.obj` files: 
   ```shell
-  python scripts/plot_obj.py <path/to/.obj>
+  python scripts/vis_obj.py <path/to/.obj>
   ```
 - Test gdino prompts:
   ```shell
