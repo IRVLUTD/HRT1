@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 *irvl-whiteboard-write-and-erase-out/*
 _DATA
 rgb/
@@ -13,6 +14,8 @@ robokit/imgs
 robokit/imgs_dev/
 robokit/ckpts
 
+=======
+>>>>>>> origin/main
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -121,8 +124,15 @@ ipython_config.py
 #pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
+<<<<<<< HEAD
 #   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
+=======
+#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+.pdm.toml
+.pdm-python
+.pdm-build/
+>>>>>>> origin/main
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
