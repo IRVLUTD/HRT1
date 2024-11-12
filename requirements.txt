@@ -1,0 +1,28 @@
+# -------------------
+# Robokit
+# -------------------
+chardet
+requests
+tqdm
+ftfy
+regex
+torch
+torchvision
+absl-py
+open3d
+scikit-image
+numpy==1.26.4
+supervision==0.18.0
+rospkg
+transforms3d
+
+# -------------------
+# HumanPoseHandBoxes
+# -------------------
+mediapipe
+
+# -------------------
+# Hamer
+# -------------------
+mmpose
+mmengine
