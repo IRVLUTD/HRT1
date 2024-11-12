@@ -24,7 +24,6 @@ from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredict
 from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 from sam2.build_sam import build_sam2_video_predictor
 from matplotlib import (patches, pyplot as plt)
-from tqdm import tqdm
 import matplotlib.cm as cm
 
 os.system("python setup.py build develop --user")
@@ -223,7 +222,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
         """
         try:
             _, image_tensor = self.image_transform_grounding(image_pil)
-            bboxes, conf, phrases = predict(self.model, image_tensor, det_text_prompt, box_threshold=0.25, text_threshold=0.25, device=self.device)
+            bboxes, conf, phrases = predict(self.model, image_tensor, det_text_prompt, box_threshold=0.3, text_threshold=0.35, device=self.device)
             return bboxes, phrases, conf        
         except Exception as e:
             self.logger.error(f"Error during model prediction: {e}")
@@ -503,7 +502,7 @@ class SAM2VideoPredictor(ObjectPredictor):
                     # Draw bounding box
                     plt.gca().add_patch(plt.Rectangle(
                         (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
-                        linewidth=2, edgecolor="red", facecolor="none"))
+                        linewidth=2, edgecolor="cyan", facecolor="none"))
                     
                     out_file_name = f"{out_frame_idx:06d}.jpg"
 
@@ -523,11 +522,11 @@ class SAM2VideoPredictor(ObjectPredictor):
 
                         # Plot the tracklet with centroids
                         num_centroids = len(centroids)
-                        colormap = cm.get_cmap("plasma")  # Choose a colormap
+                        colormap = cm.get_cmap("autumn")  # Choose a colormap
                         
                         for idx, (x, y) in enumerate(centroids):
                             color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
-                            plt.plot(x, y, 'o', color=color, markersize=5)
+                            plt.plot(x, y, 'o', color=color, markersize=3)
                         
                         # Save the trajectory overlayed image if save_output is True
                         if save_output:
