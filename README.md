@@ -1,84 +1,65 @@
-# RoboKit
-A toolkit for robotic tasks
 
-## Features
-- Zero-shot classification using OpenAI CLIP.
-- Zero-shot text-to-bbox approach for object detection using GroundingDINO.
-- Zero-shot bbox-to-mask approach for object detection using SegmentAnything (MobileSAM).
-- Zero-shot image-to-depth approach for depth estimation using Depth Anything.
-- Zero-shot feature upsampling using FeatUp.
-- Zero-shot DoorHandle detection using [iTeach](https://irvlutd.github.io/iTeach/)-[DHYOLO](https://huggingface.co/spaces/IRVLUTD/DH-YOLO) model
-- Zero-shot bbox-to-mask video propogation approach for object tracking using SegmentAnythingV2 (SAMv2).
-  - Note that SAMv2 only supports mp4 or jpg files as of 11/06/2024
-  - Currently only supports bbox prompt with all video frames stored as jpg files in a directory
-  - If you have an mp4 file then extract individual frames as jpg and store in a directory
+# MM-Demo
+A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) tool.
 
+## Setup
 
-## Getting Started
-
-### Prerequisites
-TODO
-- Python 3.7 or higher (tested 3.9.18)
-- torch (tested 2.0)
-- torchvision
-- pytorch-cuda=11.8 (tested)
-- [SAMv2 requires py>=3.10.0](https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/setup.py#L171) (here the installation has been tweaked to remove this constraint)
-
-### Installation
 ```sh
-# clone
-git clone https://github.com/IRVLUTD/robokit.git && cd robokit 
+# Clone the repository
+git clone --recursive https://github.com/IRVLUTD/mm-demo && cd mm-demo
 
-# make sure your CUDA_HOME env var is set
+# Create a conda environment
+conda create -n 1-shot python=3.10  # Python 3.10 required for samv2 and hamer dependencies
+conda activate 1-shot
+
+# Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
 
-# install dependencies
-pip install -r requirements.txt
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+# Run the setup script
+chmod +x ./setup_perception.sh
+./setup_perception.sh
 
-# install
-python setup.py install
+# run (todo hbhp no longer needed as hamer has hand bbox detection enabled)
+python perception_pipeline.py # hbhp+gdino+samv2
 ```
 
-### Known Installation Issues 
-- Check GroundingDINO [installation](https://github.com/IDEA-Research/GroundingDINO?tab=readme-ov-file#hammer_and_wrench-install) for the following error
-```sh
-NameError: name '_C' is not defined
-```
-- For SAMv2, `ModuleNotFoundError: No module named 'omegaconf.vendor'`
-```sh
-pip install --upgrade --force-reinstall hydra-core
-```
+## Tools
+#### Note: To run, move all relevant scripts inside `scripts/` to project root folder
+- To view `.obj` files: 
+  ```shell
+  python scripts/vis_obj.py <path/to/.obj>
+  ```
 
-## Usage
-- Note: All test scripts are located in the [`test`](test) directory. Place the respective test scripts in the root directory to run.
-- SAM: [`test_sam.py`](test/test_sam.py)
-- GroundingDINO + SAM: [`test_gdino_sam.py`](test/test_gdino_sam.py)
-- GroundingDINO + SAM + CLIP: [`test_gdino_sam_clip.py`](test/test_gdino_sam_clip.py)
-- Depth Anything: [`test_depth_anything.py`](test/test_depth_anything.py)
-- FeatUp: [`test_featup.py`](test/test_featup.py)
-- iTeach-DHYOLO: [`test_dhyolo.py`](test/test_dhyolo.py)
-- SAMv2: [`test_samv2.py`](test/test_samv2.py)
-- Test Datasets: [`test_dataset.py`](test/test_dataset.py)
-  - `python test_dataset.py --gpu 0 --dataset <ocid_object_test/osd_object_test>`
+- Test gdino prompts:
+  ```shell
+  python test_gdino_prompts.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser"
+  # Output gets saved in `./imgs/gdino/irvl-whiteboard-write-and-erase/black_eraser`
+  ```
 
-## Roadmap
+- Test gdino + samv2: (Get bbox of the desired object from the first frame and then track them in the video frames using SAMv2)
+  ```shell
+  python test_gdino_samv2.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser" --save_interval=1
+  # Output gets saved in 
+  # `./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/masks` mask overlayed + init obj bbox
+  # `./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/traj_overlayed` trajectory + mask overlayed + init obj bbox
+  ```
 
-Future goals for this project include: 
-- Add a config to set the pretrained checkpoints dynamically
-- More: TODO
+- Test hamer:
+  ```shell
+  cd hamer
+  python demo.py --img_folder ../imgs/irvl-whiteboard-write-and-erase/rgb/ \
+  --out_folder irvl-whiteboard-write-and-erase-test \
+  --batch_size=48 --side_view --save_mesh --full_frame
+  ``` 
 
-## Acknowledgments
+- Get right/left hand bboxes and meshes: [assumption: only one person exists in the scene]
+  ```shell
+  cd  hamer
+  python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/irvl-whiteboard-write-and-erase/rgb/"
+  # Output gets saved in `./imgs/irvl-whiteboard-write-and-erase/hamer/` (.obj, .png)
+  ```
 
-This project is based on the following repositories (license check mandatory):
-- [CLIP](https://github.com/openai/CLIP)
-- [MobileSAM](https://github.com/ChaoningZhang/MobileSAM)
-- [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO)
-- [DepthAnything](https://huggingface.co/docs/transformers/main/en/model_doc/depth_anything#transformers.DepthAnythingForDepthEstimation)
-- [FeatUp](https://github.com/mhamilton723/FeatUp)
-- [iTeach](https://irvlutd.github.io/iTeach/)-[DHYOLO](https://huggingface.co/spaces/IRVLUTD/DH-YOLO)
-- [SAMv2](https://github.com/facebookresearch/sam2)
+### Acknowledgments
 
-
-## License
-This project is licensed under the MIT License. However, before using this tool please check the respective works for specific licenses.
+- [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
+- [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
