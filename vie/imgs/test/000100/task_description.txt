@@ -1,0 +1,1 @@
+SCENE: A refridgerator with a white handle microwave oven and coffee maker on top.<SEP> TASK: open the microwave oven door and close by grabing the white handle.
