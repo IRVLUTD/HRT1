@@ -166,7 +166,7 @@ class HandMeshBoundingBoxExtractor:
             batch = recursive_to(batch, self.device)
             with torch.no_grad():
                 out = self.model(batch)
-
+            import pdb; pdb.set_trace()
             # # Convert tensor to numpy for easier handling
             # import numpy as np
             # from PIL import Image, ImageDraw
@@ -302,7 +302,7 @@ if __name__ == "__main__":
     else:
         # List all files in the directory and filter for image files (jpg, jpeg, png)
         image_files = [f for f in os.listdir(input_dir)
-                       if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.JPG', '.JPEG'))]
+                       if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.JPG', '.JPEG', '.png'))]
 
         if not image_files:
             raise Exception(f"No image files found in the directory '{input_dir}'.")
