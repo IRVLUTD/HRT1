@@ -1,3 +1,8 @@
+"""
+Source: https://github.com/IRVLUTD/hamer-depth/blob/070886168e469ab1645612a2c3b8c6473aab1aef/demo_depth.py
+Credits: Yu Xiang
+"""
+
 from pathlib import Path
 import torch
 import argparse
@@ -17,7 +22,7 @@ LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
 from vitpose_model import ViTPoseModel
 
 from scipy.optimize import minimize
-from mesh_to_sdf.depth_point_cloud import DepthPointCloud
+from vie.hamer.mesh_to_sdf.rgbd2pc import DepthPointCloud
 import matplotlib.pyplot as plt
 import open3d as o3d
 
