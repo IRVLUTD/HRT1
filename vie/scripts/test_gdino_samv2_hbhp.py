@@ -17,15 +17,19 @@ To do:
 """
 
 import os
-import numpy as np
 import cv2
-from absl import app, logging
+import numpy as np
 from PIL import Image as PILImg
+from absl import app, logging, flags
 from HumanPoseHandBoxes import MPLandmarking as MPL, OutputImages as OUT
 from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
 
+# Define flags for data root and video directory
+FLAGS = flags.FLAGS
+flags.DEFINE_string('data_root', '', 'Path to the directory containing rgb, depth, and pose folders')
 
-class ImageProcessor:
+
+class VIEObjectProcessor:
     def __init__(self):
         """
         Initializes the models (GroundingDINO and SAM2) once, so they don't need to be initialized repeatedly.
@@ -127,11 +131,11 @@ def main(argv):
     Args:
         argv (list): List of arguments passed to the script. Expects data root and video directory paths.
     """
-    data_root = argv[0]  # Data root for images
+    data_root = FLAGS.data_root # Data root for images
     video_dir = os.path.join(data_root, "rgb")  # Video directory for SAM2
 
-    # Create an instance of the ImageProcessor class
-    processor = ImageProcessor()
+    # Create an instance of the VIEObjectProcessor class
+    processor = VIEObjectProcessor()
 
     # Process all images in the RGB directory
     rgb_path = os.path.join(data_root, "rgb")
@@ -152,7 +156,8 @@ def main(argv):
         print(f"Processed video frames: {video_result['frame_names']}, Segments: {len(video_result['video_segments'])}")
 
 if __name__ == "__main__":
+    # Define flags
+    flags.mark_flag_as_required('data_root')
+
     # Run the main function with data root and video directory paths
-    app.run(main, [
-        '/home/jishnu/Projects/mm-demo/'
-    ])
+    app.run(main)
