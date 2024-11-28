@@ -1,8 +1,8 @@
 # MM-Demo
 A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https://github.com/IRVLUTD/robokit) and [gto](https://github.com/IRVLUTD/GraspTrajOpt) tools.
 
-- [`vie/`](vie/) contains human demo data capture and video information extraction modules
-- [`traj/`](traj/) would contain the logic for traj imitation logic
+- [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules
+- [`traj/`](traj/) would contain the logic for traj imitation/following
 
 ## Setup
 
