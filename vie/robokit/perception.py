@@ -452,6 +452,29 @@ class SAM2VideoPredictor(ObjectPredictor):
             print(f"Error during segmentation: {e}")
             raise
 
+
+    def save_binary_mask_with_pil(self, mask, save_path):
+        """
+        Saves a binary mask as a PNG file using PIL while preserving binary values (0 and 1).
+
+        Args:
+            mask (np.ndarray): A 2D NumPy array representing the binary mask (values 0 and 1).
+            save_path (str): The file path where the PNG image will be saved.
+        """
+        try:
+            # Ensure the mask is in uint8 format
+            if mask.dtype != np.uint8:
+                mask = mask.astype(np.uint8)
+
+            # Convert the NumPy array to a PIL image
+            mask_image = PILImg.fromarray(mask)
+
+            # Save the mask as a PNG file
+            mask_image.save(save_path, format="PNG")
+            print(f"Binary mask saved successfully at {save_path}")
+        except Exception as e:
+            print(f"Error saving binary mask: {e}")
+
     def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True):
         """
         Propagate the segmentation mask across the entire video and optionally save the frames with masks to a subdirectory.
@@ -483,8 +506,8 @@ class SAM2VideoPredictor(ObjectPredictor):
             if save_output:
                 out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
                 output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
-                masks_dir = os.path.join(output_dir, "masks")
-                traj_overlayed_dir = os.path.join(output_dir, "traj_overlayed")
+                masks_dir = os.path.join(output_dir, "obj_masks")
+                traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
                 os.makedirs(masks_dir, exist_ok=True)
                 os.makedirs(traj_overlayed_dir, exist_ok=True)
 
@@ -510,19 +533,15 @@ class SAM2VideoPredictor(ObjectPredictor):
                         (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
                         linewidth=2, edgecolor="cyan", facecolor="none"))
                     
-                    out_file_name = f"{out_frame_idx:06d}.jpg"
+                    out_file_name = f"{out_frame_idx:06d}.png"
 
                     # Show segmentation masks
                     for out_obj_id, out_mask in video_segments[out_frame_idx].items():
                         self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
                         
-                        # Turn off axis labels
-                        plt.axis('off')
-                        
-                        # Save the mask overlayed image result if save_output is True
-                        if save_output:
-                            plt.savefig(os.path.join(masks_dir, out_file_name))
-                        
+                        # assumption only one object exists
+                        self.save_binary_mask_with_pil(out_mask[0], os.path.join(masks_dir, out_file_name))
+
                         centroid =  self.calculate_centroid(out_mask)
                         centroids.append(centroid)
 

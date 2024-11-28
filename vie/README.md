@@ -19,26 +19,11 @@ chmod +x ./setup_perception.sh
 
 ## 📜 Requirements
 
-- **Python 3.9.20**  
-  Required for the following modules:
+- All the vie modules are tested on **Python 3.10.15**
   - robokit
   - gdino
   - samv2
-
-- **Python 3.10**  
-  Required for the following module:
   - hamer
-
----
-
-## 🚀 Running the Pipeline
-
-You can run the perception pipeline using the following command:
-```shell
-python perception_pipeline.py  # Uses hbhp + gdino + samv2
-```
-
-**Note**: `hbhp` is no longer needed as `hamer` now includes hand bounding box detection.
 
 ---
 
@@ -62,8 +47,8 @@ To use GDINO and SAMv2 for object bounding box detection and tracking in video f
 ```shell
 python test_gdino_samv2.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser" --save_interval=1
 # Output saved in:
-# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/masks - Mask overlay + initial object bbox
-# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/traj_overlayed - Trajectory + mask overlay + initial object bbox
+# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/obj_masks - object mask
+# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
 
 ### 4. 🖥️ Testing HAMER
@@ -74,7 +59,7 @@ python demo.py --img_folder ../imgs/irvl-whiteboard-write-and-erase/rgb/ --out_f
 ```
 
 ### 5. ✋ Extracting Right/Left Hand BBoxes and Meshes
-To extract right/left hand bounding boxes and 3D meshes (assuming only one person in the scene):
+To extract right(1)/left(0) hand bounding boxes and 3D meshes (assuming only one person in the scene):
 ```shell
 cd hamer
 python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/irvl-whiteboard-write-and-erase/rgb/"
