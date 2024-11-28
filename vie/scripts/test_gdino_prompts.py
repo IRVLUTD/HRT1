@@ -60,13 +60,12 @@ from tqdm import tqdm
 FLAGS = flags.FLAGS
 flags.DEFINE_string('input_dir', None, 'Directory path to input images')
 flags.DEFINE_string('text_prompt', None, 'Text prompt for GDINO predictions')
+flags.DEFINE_boolean('infer_first_only', False, 'Infer only the first image if this flag is given.')
+
 
 def main(argv):
     # Get the input directory and text prompt from FLAGS
-    _image_root_dir, text_prompt = sanity_check(argv)
-
-    if not _image_root_dir or not text_prompt:
-        raise ValueError("Both --input_dir and --text_prompt flags must be provided.")
+    _image_root_dir, img_files, text_prompt = sanity_check(argv)
 
     try:
         logging.info("Initialize object detectors")
@@ -82,7 +81,8 @@ def main(argv):
         # Dummy mask for annotate func later on (we are using only GDINO and not SAM)
         dummy_masks = np.array([])
 
-        img_files = os.listdir(_image_root_dir)
+        if flags.FLAGS.infer_first_only:
+            img_files = [img_files[0]]
 
         for img_file in tqdm(img_files):
             image_path = os.path.join(_image_root_dir, img_file)
@@ -110,7 +110,6 @@ def main(argv):
         print(f"An unexpected error occurred: {e}")
 
 
-
 def sanity_check(argv):
     input_dir = flags.FLAGS.input_dir
     text_prompt = flags.FLAGS.text_prompt
@@ -131,7 +130,7 @@ def sanity_check(argv):
     if not text_prompt:
         raise Exception("Error: 'text_prompt' is required but not provided.")
 
-    return input_dir, text_prompt
+    return input_dir, image_files, text_prompt
 
 
 if __name__ == "__main__":

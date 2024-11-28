@@ -133,6 +133,22 @@ def create_raymond_lights() -> List[pyrender.Node]:
 
     return nodes
 
+
+def projection_to_intrinsics(mat, width=224, height=224):
+    intrinsic_matrix = np.eye(3)
+    mat = np.array(mat).reshape([4, 4]).T
+    fv = width / 2 * mat[0, 0]
+    fu = height / 2 * mat[1, 1]
+    u0 = width / 2
+    v0 = height / 2
+
+    intrinsic_matrix[0, 0] = fu
+    intrinsic_matrix[1, 1] = fv
+    intrinsic_matrix[0, 2] = u0
+    intrinsic_matrix[1, 2] = v0
+    return intrinsic_matrix
+
+
 class Renderer:
 
     def __init__(self, cfg: CfgNode, faces: np.array):
@@ -225,7 +241,6 @@ class Renderer:
         camera = pyrender.IntrinsicsCamera(fx=self.focal_length, fy=self.focal_length,
                                            cx=camera_center[0], cy=camera_center[1], zfar=1e12)
         scene.add(camera, pose=camera_pose)
-
 
         light_nodes = create_raymond_lights()
         for node in light_nodes:
@@ -360,14 +375,19 @@ class Renderer:
         scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
                                ambient_light=(0.3, 0.3, 0.3))
         for i,mesh in enumerate(mesh_list):
+            print(i, mesh.primitives[0].positions)
             scene.add(mesh, f'mesh_{i}')
 
         camera_pose = np.eye(4)
         # camera_pose[:3, 3] = camera_translation
         camera_center = [render_res[0] / 2., render_res[1] / 2.]
         focal_length = focal_length if focal_length is not None else self.focal_length
+        print(focal_length, camera_center)
         camera = pyrender.IntrinsicsCamera(fx=focal_length, fy=focal_length,
                                            cx=camera_center[0], cy=camera_center[1], zfar=1e12)
+        projection_matrix = camera.get_projection_matrix(render_res[0], render_res[1])
+        intrinsic_matrix = projection_to_intrinsics(projection_matrix, render_res[0], render_res[1])
+        print(intrinsic_matrix, render_res)
 
         # Create camera node and add it to pyRender scene
         camera_node = pyrender.Node(camera=camera, matrix=camera_pose)

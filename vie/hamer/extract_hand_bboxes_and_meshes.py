@@ -6,6 +6,8 @@
 
 """
 This script is modified from https://github.com/geopavlakos/hamer/blob/df533a2d04b9e2ece7cf9d6cbc6982e140210517/demo.py
+The script in its default state is capable of providing hand mesh for multiple persons in the image.
+We have not modified this ability. In our setup, we make sure that one scene contains only one person
 """
 
 import os
@@ -13,6 +15,14 @@ import cv2
 import torch
 import argparse
 import numpy as np
+
+
+from scipy.optimize import minimize
+import open3d as o3d
+from mesh_to_sdf.rgbd2pc import RGBD2PC
+import matplotlib.pyplot as plt
+
+
 from pathlib import Path
 from hamer.configs import CACHE_DIR_HAMER
 from hamer.models import download_models, load_hamer, DEFAULT_CHECKPOINT
@@ -26,6 +36,56 @@ from tqdm import tqdm
 
 LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
 
+
+def load_depth_img(img_path):
+    """
+    Source: https://github.com/IRVLUTD/hamer-depth/commit/070886168e469ab1645612a2c3b8c6473aab1aef#diff-6bacd8700314864adb2bf1d56bb841dab8e0ac87d88c8303caa83b545d0b4b9dR116
+    """    
+    # load depth
+    depth_path = str(img_path).replace('rgb', 'depth').replace('jpg', 'png')
+    depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH).astype(np.float32)
+    depth /= 1000.0 # as while capturing data, raw depth was multiplied by 1000 as stored as png
+    return depth
+
+
+def get_my_intrinsic_matrix():
+    """
+    Returns the intrinsic matrix of the target camera.
+    In our case: IRVL Fetch robot camera
+    """
+    intrinsic_matrix = np.array([
+        [574.0527954101562, 0.0, 319.5],
+        [0.0, 574.0527954101562, 239.5],
+        [0.0, 0.0, 1.0]
+    ])
+    return intrinsic_matrix
+
+def obj_funcion(x, vertices, translation, K1, K2, kd_tree):
+    """
+    The obj_function logic 
+    - from https://github.com/IRVLUTD/hamer-depth/commit/070886168e469ab1645612a2c3b8c6473aab1aef#diff-6bacd8700314864adb2bf1d56bb841dab8e0ac87d88c8303caa83b545d0b4b9dR26
+    - Credit: Yu Xiang
+    """
+    # projection 1
+    V1 = vertices + translation
+    x1 = K1 @ V1.T
+    x1[0, :] /= x1[2, :]
+    x1[1, :] /= x1[2, :]
+
+    # projection 2
+    V2 = vertices + x
+    x2 = K2 @ V2.T
+    x2[0, :] /= x2[2, :]
+    x2[1, :] /= x2[2, :]
+    
+    # 3D distances
+    distances, indices = kd_tree.query(V2)
+    distances = distances.astype(np.float32).reshape(-1)
+    error_3d = np.mean(distances)
+    
+    # error
+    error_2d = np.square(x1[:2] - x2[:2]).mean()
+    return error_2d + 10 * error_3d
 
 class HandMeshBoundingBoxExtractor:
     def __init__(self, checkpoint: str = DEFAULT_CHECKPOINT, body_detector: str = 'vitdet', rescale_factor: float = 2.0):
@@ -58,12 +118,7 @@ class HandMeshBoundingBoxExtractor:
     def extract_bounding_boxes(self, img_path: str, save_mesh: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         # Get the root directory name (parent folder name)
         parent_dir = os.path.dirname(img_path)
-        root_dir_name = os.path.basename(parent_dir)
         
-        # Create the output folder with 'hamer/root_dir_name' suffix
-        out_folder = os.path.normpath(os.path.join(parent_dir, f"../out/hamer/"))
-        os.makedirs(out_folder, exist_ok=True)
-
         # Read the image
         img_cv2 = cv2.imread(img_path)
         
@@ -85,51 +140,10 @@ class HandMeshBoundingBoxExtractor:
         bboxes = []
         is_right = []
         
-        from PIL import Image, ImageDraw
-        
         # Process pose outputs
         for vitposes in vitposes_out:
             left_hand_keyp = vitposes['keypoints'][-42:-21]
             right_hand_keyp = vitposes['keypoints'][-21:]
-            # image = Image.fromarray(img_cv2[:,:,::-1])
-            # draw = ImageDraw.Draw(image)
-
-            # points = left_hand_keyp[:,:-1]
-
-            # # Plot each point on the image
-            # is_first = True
-            # for x, y in points:
-            #     # Convert coordinates to integers
-            #     x, y = int(x), int(y)
-            #     # Draw a small circle at each point
-            #     radius = 3
-            #     if is_first:
-            #         a,b = "cyan", "magenta"
-            #         is_first = False
-            #     else:
-            #         b,a = "magenta", "cyan"
-            #     draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=a, outline=b)
-
-            # points = right_hand_keyp[:,:-1]
-
-            # # Plot each point on the image
-            # is_first = True
-            # for x, y in points:
-            #     # Convert coordinates to integers
-            #     x, y = int(x), int(y)
-            #     # Draw a small circle at each point
-            #     radius = 3
-            #     if is_first:
-            #         a,b = "red", "yellow"
-            #         is_first = False
-            #     else:
-            #         b,a = "red", "yellow"
-            #     draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=a, outline=b)
-
-            # # Show the image with points overlayed
-            # image.show()
-            
-            
 
             for keyp, right_flag in [(left_hand_keyp, 0), (right_hand_keyp, 1)]:
                 valid = keyp[:, 2] > 0.5
@@ -148,69 +162,77 @@ class HandMeshBoundingBoxExtractor:
 
         # Optionally save the meshes
         if save_mesh:
-            self._save_meshes(img_cv2, boxes, right, img_path, out_folder)
+            self._save_meshes(img_cv2, boxes, right, img_path, parent_dir)
 
         return boxes, right
 
-    def _save_meshes(self, img_cv2, boxes, right, img_path, out_folder):
+    def convert_output_to_numpy(self, out):
+        """
+        Convert the output dictionary with PyTorch tensors and additional data (bboxes, is_right) to NumPy arrays.
+        
+        Args:
+            out (dict): The output dictionary containing model outputs, including 'pred_mano_params'.
+        
+        Returns:
+            dict: The dictionary with all tensors and additional data converted to NumPy arrays.
+        """
+        # Convert tensors in the main output dictionary to NumPy arrays
+        out_numpy = {k: v.cpu().numpy() if hasattr(v, 'cpu') else v for k, v in out.items()}
+        
+        # Specifically handle 'pred_mano_params' if it exists
+        if 'pred_mano_params' in out_numpy:
+            out_numpy['pred_mano_params'] = {
+                k: v.cpu().numpy() if hasattr(v, 'cpu') else v for k, v in out_numpy['pred_mano_params'].items()
+            }
+        
+        return out_numpy
+
+    def save_output_as_npz(self, out, bboxes, is_right, filepath):
+        """
+        Save the model output dictionary, bounding boxes, and hand flags to an .npz file after converting to NumPy arrays.
+        
+        Args:
+            out (dict): The model output dictionary.
+            bboxes (list or np.ndarray): The bounding boxes.
+            is_right (list or np.ndarray): The right/left hand flags (1 for right hand, 0 for left hand).
+            filepath (str): Path to the .npz file where the output should be saved.
+        """
+        # Convert all tensors and additional data (bboxes, right) to NumPy arrays
+        out_numpy = self.convert_output_to_numpy(out)
+
+        # Add bounding boxes and right/left hand flags to the output dictionary
+        out_numpy['bboxes'] = np.stack(bboxes)  # Stack the bounding boxes into a NumPy array
+        out_numpy['right'] = np.stack(is_right)  # Stack the right/left hand flags (1 for right hand, 0 for left hand)
+
+        # Save the dictionary as an .npz file
+        np.savez_compressed(filepath, **out_numpy)
+        print(f"Output saved to {filepath}")
+
+    def _save_meshes(self, img_cv2, boxes, right, img_path, parent_dir):
+        # Create the output folder with 'hamer/root_dir_name' suffix
+        out_root_dir = "../out/hamer"
+        plots_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/extra_plots")) # for plots and objs
+        model_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/model")) # for model output
+        _3dhand_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/3dhand")) # for hand aligned with fetch cam
+        scene_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/scene")) # scene point cloud
+        os.makedirs(plots_out_folder, exist_ok=True)
+        os.makedirs(model_out_folder, exist_ok=True)
+        os.makedirs(_3dhand_out_folder, exist_ok=True)
+        os.makedirs(scene_out_folder, exist_ok=True)
+
         dataset = ViTDetDataset(self.model_cfg, img_cv2, boxes, right, rescale_factor=self.rescale_factor)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=False, num_workers=0)
 
         all_verts = []
         all_cam_t = []
         all_right = []
-        
-        import matplotlib.pyplot as plt
+
+        depth = load_depth_img(img_path)
 
         for batch in dataloader:
             batch = recursive_to(batch, self.device)
             with torch.no_grad():
                 out = self.model(batch)
-            import pdb; pdb.set_trace()
-            # # Convert tensor to numpy for easier handling
-            # import numpy as np
-            # from PIL import Image, ImageDraw
-            # hand_pose_tensor = np.array(out['pred_keypoints_2d'].cpu())
-
-            # # Create a drawing object to draw on the image
-            # image = Image.fromarray(img_cv2)
-            # draw = ImageDraw.Draw(image)
-
-            # # Scale factor to convert normalized keypoints into image coordinates
-            # scale_x = image.width
-            # scale_y = image.height
-
-            # # Plot the keypoints for each hand
-            # colors = ['blue', 'red']  # Blue for hand 1, red for hand 2
-
-            # for i in range(2):  # Iterate over the two hands
-            #     hand_keypoints = hand_pose_tensor[i]
-                
-            #     # Plot the keypoints
-            #     for x, y in hand_keypoints:
-            #         # Convert normalized (x, y) to image coordinates
-            #         img_x = int(x * scale_x)
-            #         img_y = int(y * scale_y)
-                    
-            #         # Draw a small circle at the keypoint location
-            #         radius = 3
-            #         draw.ellipse((img_x - radius, img_y - radius, img_x + radius, img_y + radius), fill=colors[i], outline=colors[i])
-                
-            #     # Optionally, connect the keypoints to form a skeleton (lines between joints)
-            #     for j in range(20):  # 20 connections for 21 keypoints
-            #         x1, y1 = hand_keypoints[j]
-            #         x2, y2 = hand_keypoints[j + 1]
-                    
-            #         # Convert to image coordinates
-            #         img_x1, img_y1 = int(x1 * scale_x), int(y1 * scale_y)
-            #         img_x2, img_y2 = int(x2 * scale_x), int(y2 * scale_y)
-                    
-            #         # Draw the line connecting the keypoints
-            #         draw.line((img_x1, img_y1, img_x2, img_y2), fill=colors[i], width=2)
-
-            # # Show the image with the keypoints drawn
-            # image.show()
-            # import pdb; pdb.set_trace()
 
             multiplier = (2*batch['right']-1)
             pred_cam = out['pred_cam']
@@ -219,6 +241,8 @@ class HandMeshBoundingBoxExtractor:
             box_size = batch["box_size"].float()
             img_size = batch["img_size"].float()
             multiplier = (2*batch['right']-1)
+            
+            # self.model_cfg.EXTRA.FOCAL_LENGTH = 574
             scaled_focal_length = self.model_cfg.EXTRA.FOCAL_LENGTH / self.model_cfg.MODEL.IMAGE_SIZE * img_size.max()
             pred_cam_t_full = cam_crop_to_full(pred_cam, box_center, box_size, img_size, scaled_focal_length).detach().cpu().numpy()
 
@@ -232,6 +256,9 @@ class HandMeshBoundingBoxExtractor:
                 input_patch = batch['img'][n].cpu() * (DEFAULT_STD[:,None,None]/255) + (DEFAULT_MEAN[:,None,None]/255)
                 input_patch = input_patch.permute(1,2,0).numpy()
 
+                # save the model output
+                self.save_output_as_npz(out, boxes, right, f"{model_out_folder}/{img_fn}.npz")
+                
                 # (easteregg) uncomment to plot hand cropped images
                 # """
                 regression_img = self.renderer(out['pred_vertices'][n].detach().cpu().numpy(),
@@ -253,12 +280,11 @@ class HandMeshBoundingBoxExtractor:
                 # final_img = np.concatenate([input_patch, regression_img], axis=1)
 
                 # save image with mesh overlayed
-                cv2.imwrite(os.path.join(out_folder, f'{img_fn}_{person_id}.png'), 255*final_img[:, :, ::-1])
+                cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_{person_id}.png'), 255*final_img[:, :, ::-1])
                 # """
 
                 # Add all verts and cams to list
                 verts = out['pred_vertices'][n].detach().cpu().numpy()
-                # exit()
                 is_right = batch['right'][n].cpu().numpy()
                 verts[:,0] = (2*is_right-1)*verts[:,0]
                 cam_t = pred_cam_t_full[n]
@@ -266,19 +292,12 @@ class HandMeshBoundingBoxExtractor:
                 all_cam_t.append(cam_t)
                 all_right.append(is_right)
 
-                # Save all meshes to disk
-                camera_translation = cam_t.copy()
-                tmesh = self.renderer.vertices_to_trimesh(verts, camera_translation, LIGHT_BLUE, is_right=is_right)
-                out_path = os.path.join(out_folder, f'{img_fn}_{person_id}.obj')
-                tmesh.export(out_path)
-                print(f"Mesh saved to {out_path}")
-            
-
             misc_args = dict(
                 mesh_base_color=LIGHT_BLUE,
                 scene_bg_color=(1, 1, 1),
                 focal_length=scaled_focal_length,
             )
+
             cam_view = self.renderer.render_rgba_multiple(all_verts, cam_t=all_cam_t, render_res=img_size[n], is_right=all_right, **misc_args)
 
             # Overlay image
@@ -286,8 +305,105 @@ class HandMeshBoundingBoxExtractor:
             input_img = np.concatenate([input_img, np.ones_like(input_img[:,:,:1])], axis=2) # Add alpha channel
             input_img_overlay = input_img[:,:,:3] * (1-cam_view[:,:,3:]) + cam_view[:,:,:3] * cam_view[:,:,3:]
 
-            cv2.imwrite(os.path.join(out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
+            cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
 
+            # get the hand points
+            mask = 1 - cam_view[:,:,3] > 0
+
+            # convert depth to point cloud
+            intrinsic_matrix = get_my_intrinsic_matrix()
+            depth_pc = RGBD2PC(depth, intrinsic_matrix, camera_pose=np.eye(4), target_mask=mask, threshold=10.0)
+
+            # solve new translation
+            scaled_focal_length = scaled_focal_length.item()
+            K = np.array([[scaled_focal_length, 0, 320], [0, scaled_focal_length, 240], [0, 0, 1]]).astype(np.float32)
+            x0 = np.mean(depth_pc.points, axis=0)
+            
+            res = minimize(obj_funcion, x0, method='nelder-mead',
+                        args=(all_verts[-1], all_cam_t[-1], K, intrinsic_matrix, depth_pc.kd_tree), options={'xatol': 1e-8, 'disp': True})
+            translation_new = res.x
+
+            # fig = plt.figure()
+            # ax = fig.add_subplot(1, 3, 1)
+            # plt.imshow(input_img)
+            
+            # # verify projection 1
+            # vertices = all_verts[-1] + all_cam_t[-1]
+            # print(K, vertices)
+            # print(vertices.shape)
+            # x2d = K @ vertices.T
+            # x2d[0, :] /= x2d[2, :]
+            # x2d[1, :] /= x2d[2, :]
+            # plt.plot(x2d[0, :], x2d[1, :])
+            # plt.title('projection using hamer camera')
+
+            # ax = fig.add_subplot(1, 3, 2)
+            # plt.imshow(input_img)
+
+            # verify projection 2
+            # vertices = all_verts[-1] + translation_new
+            # x2d = intrinsic_matrix @ vertices.T
+            # x2d[0, :] /= x2d[2, :]
+            # x2d[1, :] /= x2d[2, :]
+            # plt.plot(x2d[0, :], x2d[1, :])              
+            # plt.title('projection using fetch camera')
+
+            # ax = fig.add_subplot(1, 3, 3, projection='3d')
+            
+            # ax.scatter(depth_pc.points[::100, 0], depth_pc.points[::100, 1], depth_pc.points[::100, 2], marker='o')
+            # ax.scatter(vertices[:, 0], vertices[:, 1], vertices[:, 2], marker='o', color='r')
+
+            # ax.set_xlabel('X Label')
+            # ax.set_ylabel('Y Label')
+            # ax.set_zlabel('Z Label')
+            # plt.show()               
+
+            # save rgbd scene pc
+            RT_file = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'pose', f'{img_fn}.npz')
+            RT = np.load(RT_file)['RT_camera'] # not using as of now
+            img_cv2 = img_cv2.astype(np.float32)[:, :, ::-1]  # Convert from BGR to RGB
+            RT = np.eye(4)
+            scene_pcd = RGBD2PC(depth, intrinsic_matrix, rgb=img_cv2, camera_pose=RT, target_mask=None, threshold=10.0)
+            scene_pcd.save_point_cloud(os.path.join(scene_out_folder, f"{img_fn}.ply"))
+
+            # save fetch cam aligned hamer hand mesh pc
+            output_path, pcd = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
+
+
+    def save_point_cloud_as_ply(vertices, output_folder, filename, colors=None):
+        """
+        Save a point cloud (with optional RGB colors) as a PLY file using Open3D.
+
+        Args:
+            vertices (numpy.ndarray): Nx3 array of 3D points.
+            output_folder (str): Directory to save the PLY file.
+            filename (str): Name of the output PLY file (without extension).
+            colors (numpy.ndarray, optional): Nx3 array of RGB colors (values in range [0, 255]).
+                                            If None, saves the point cloud without colors.
+
+        Returns:
+            str: Full path to the saved PLY file.
+        """
+        os.makedirs(output_folder, exist_ok=True)
+
+        # Create an Open3D PointCloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(vertices)
+
+        # Add colors if provided
+        if colors is not None:
+            if colors.shape[0] != vertices.shape[0]:
+                raise ValueError("The number of color entries must match the number of vertices.")
+            pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalize RGB to [0, 1]
+
+        # Construct the full path for the PLY file
+        output_path = os.path.join(output_folder, f"{filename}.ply")
+
+        # Save the point cloud to a PLY file
+        o3d.io.write_point_cloud(output_path, pcd)
+        print(f"Point cloud saved to '{output_path}' using Open3D.")
+
+        return output_path, pcd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images for hand mesh bounding box extraction.")
@@ -313,6 +429,3 @@ if __name__ == "__main__":
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
                 boxes, right = extractor.extract_bounding_boxes(img_path, save_mesh=True)
-                print("Boxes:", boxes)
-                print("Right:", right)  # 1 for right hand, 2 for left hand
-
