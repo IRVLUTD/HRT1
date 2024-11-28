@@ -7,6 +7,7 @@ ckpts/
 imgs_dev/
 hf_gdino.py
 _DATA
+scene_pcd_000100.ply
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

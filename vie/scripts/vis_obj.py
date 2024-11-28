@@ -37,12 +37,12 @@ def main():
 
     Usage:
         Run the script with a specified OBJ file path:
-            python vis_obj.py path_to_your_file.obj
+            python vis_obj.py path_to_your_file.obj color
     """
 
     # Check if the file path is provided
     if len(sys.argv) < 2:
-        print("Usage: python script.py path_to_your_file.obj")
+        print("Usage: python script.py path_to_your_file.obj color")
         sys.exit(1)
 
     # Get the file path from command-line arguments
@@ -51,17 +51,18 @@ def main():
     # Load the OBJ file
     mesh = trimesh.load(obj_file_path)
 
-    # Compute a property to color by, such as vertex heights (z-coordinates)
-    vertex_heights = mesh.vertices[:, 2]  # Z-coordinates for height
+    if len(sys.argv) == 3 and sys.argv[2] == 'color':
+      # Compute a property to color by, such as vertex heights (z-coordinates)
+      vertex_heights = mesh.vertices[:, 2]  # Z-coordinates for height
 
-    # Normalize heights to range [0, 1] for colormap mapping
-    normalized_heights = (vertex_heights - vertex_heights.min()) / (vertex_heights.max() - vertex_heights.min())
+      # Normalize heights to range [0, 1] for colormap mapping
+      normalized_heights = (vertex_heights - vertex_heights.min()) / (vertex_heights.max() - vertex_heights.min())
 
-    # Apply a colormap (e.g., "plasma") to map heights to RGB colors
-    colors = cm.plasma(normalized_heights)[:, :3]  # Get RGB values from colormap
+      # Apply a colormap (e.g., "plasma") to map heights to RGB colors
+      colors = cm.plasma(normalized_heights)[:, :3]  # Get RGB values from colormap
 
-    # Assign colors to vertices
-    mesh.visual.vertex_colors = (colors * 255).astype(np.uint8)  # Convert to 0-255 range for trimesh
+      # Assign colors to vertices
+      mesh.visual.vertex_colors = (colors * 255).astype(np.uint8)  # Convert to 0-255 range for trimesh
 
     # Display the mesh with spectrum colors in an interactive viewer
     mesh.show()

@@ -1,48 +1,97 @@
-# Run the setup script
+
+# 📁 Project Setup and Usage Guide
+
+## 🛠️ Setup Instructions
+
+To set up the environment and prepare the project, run the following commands:
+
+### 🧑‍💻 Run the Setup Script
+```shell
+# Remove all __pycache__ directories and .egg-info files recursively
+find . -name "__pycache__" -type d -exec rm -rf {} + -o -name "*.egg-info" -type d -exec rm -rf {} +
+
+# Make the setup script executable and run it
 chmod +x ./setup_perception.sh
 ./setup_perception.sh
-
-# run (todo hbhp no longer needed as hamer has hand bbox detection enabled)
-python perception_pipeline.py # hbhp+gdino+samv2
 ```
 
-## Tools
-#### Note: To run, move all relevant scripts inside `scripts/` to project root folder
-- To view `.obj` files: 
-  ```shell
-  python scripts/vis_obj.py <path/to/.obj>
-  ```
+---
 
-- Test gdino prompts:
-  ```shell
-  python test_gdino_prompts.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser"
-  # Output gets saved in `./imgs/gdino/irvl-whiteboard-write-and-erase/black_eraser`
-  ```
+## 📜 Requirements
 
-- Test gdino + samv2: (Get bbox of the desired object from the first frame and then track them in the video frames using SAMv2)
-  ```shell
-  python test_gdino_samv2.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser" --save_interval=1
-  # Output gets saved in 
-  # `./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/masks` mask overlayed + init obj bbox
-  # `./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/traj_overlayed` trajectory + mask overlayed + init obj bbox
-  ```
+- **Python 3.9.20**  
+  Required for the following modules:
+  - robokit
+  - gdino
+  - samv2
 
-- Test hamer:
-  ```shell
-  cd hamer
-  python demo.py --img_folder ../imgs/irvl-whiteboard-write-and-erase/rgb/ \
-  --out_folder irvl-whiteboard-write-and-erase-test \
-  --batch_size=48 --side_view --save_mesh --full_frame
-  ``` 
+- **Python 3.10**  
+  Required for the following module:
+  - hamer
 
-- Get right/left hand bboxes and meshes: [assumption: only one person exists in the scene]
-  ```shell
-  cd  hamer
-  python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/irvl-whiteboard-write-and-erase/rgb/"
-  # Output gets saved in `./imgs/irvl-whiteboard-write-and-erase/hamer/` (.obj, .png)
-  ```
+---
 
-### Acknowledgments
+## 🚀 Running the Pipeline
+
+You can run the perception pipeline using the following command:
+```shell
+python perception_pipeline.py  # Uses hbhp + gdino + samv2
+```
+
+**Note**: `hbhp` is no longer needed as `hamer` now includes hand bounding box detection.
+
+---
+
+## 🔧 Tools
+
+### 1. 👁️ Viewing `.obj` Files
+To visualize `.obj` files, use the following script:
+```shell
+python scripts/vis_obj.py <path/to/.obj>
+```
+
+### 2. 🤖 Testing GDINO Prompts
+To test GDINO with a text prompt:
+```shell
+python test_gdino_prompts.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser" --infer_first_only
+# The output will be saved in: ./imgs/gdino/irvl-whiteboard-write-and-erase/black_eraser
+```
+
+### 3. 🔍 Testing GDINO + SAMv2
+To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
+```shell
+python test_gdino_samv2.py --input_dir ./imgs/irvl-whiteboard-write-and-erase/rgb --text_prompt "black eraser" --save_interval=1
+# Output saved in:
+# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/masks - Mask overlay + initial object bbox
+# ./imgs/irvl-whiteboard-write-and-erase/samv2/black_eraser/traj_overlayed - Trajectory + mask overlay + initial object bbox
+```
+
+### 4. 🖥️ Testing HAMER
+To test the HAMER pipeline for processing images:
+```shell
+cd hamer
+python demo.py --img_folder ../imgs/irvl-whiteboard-write-and-erase/rgb/ --out_folder irvl-whiteboard-write-and-erase-test --batch_size=48 --side_view --save_mesh --full_frame
+```
+
+### 5. ✋ Extracting Right/Left Hand BBoxes and Meshes
+To extract right/left hand bounding boxes and 3D meshes (assuming only one person in the scene):
+```shell
+cd hamer
+python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/irvl-whiteboard-write-and-erase/rgb/"
+# Output will be saved in:
+# ./imgs/irvl-whiteboard-write-and-erase/hamer/extra_plots  - For visualization and debugging
+# ./imgs/irvl-whiteboard-write-and-erase/hamer/scene  - RGB scene point cloud
+# ./imgs/irvl-whiteboard-write-and-erase/hamer/model  - HAMER output, including mano params
+# ./imgs/irvl-whiteboard-write-and-erase/hamer/3dhand  - 3D hand mesh aligned with scene point cloud
+```
+
+---
+
+## 🙏 Acknowledgments
+
+This project utilizes the following resources:
 
 - [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
+
+---
