@@ -287,6 +287,49 @@ class HandInfoExtractor:
         
         return out_numpy
 
+
+    def save_point_cloud_as_ply(self, vertices, output_folder, filename, colors=None):
+        """
+        Save a point cloud (with optional RGB colors) as a PLY file using Open3D.
+
+        Args:
+            vertices (numpy.ndarray): Nx3 array of 3D points.
+            output_folder (str): Directory to save the PLY file.
+            filename (str): Name of the output PLY file (without extension).
+            colors (numpy.ndarray, optional): Nx3 array of RGB colors (values in range [0, 255]).
+                                            If None, saves the point cloud without colors.
+
+        Returns:
+            str: Full path to the saved PLY file.
+            open3d.geometry.PointCloud: The Open3D PointCloud object created and saved.
+        
+        Raises:
+            ValueError: If the number of color entries does not match the number of vertices.
+        """
+        # Ensure the output directory exists
+        os.makedirs(output_folder, exist_ok=True)
+
+        # Create an Open3D PointCloud object
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(vertices)
+
+        # Add colors if provided
+        if colors is not None:
+            if colors.shape[0] != vertices.shape[0]:
+                raise ValueError("The number of color entries must match the number of vertices.")
+            # Normalize RGB values to [0, 1] range
+            pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
+
+        # Construct the full file path for the PLY file
+        output_path = os.path.join(output_folder, f"{filename}.ply")
+
+        # Save the point cloud to a PLY file
+        o3d.io.write_point_cloud(output_path, pcd)
+        print(f"Point cloud saved to '{output_path}' using Open3D.")
+
+        return output_path, pcd
+
+
     def save_output_as_npz(self, out, bboxes, is_right, filepath):
         """
         Save the model output dictionary, bounding boxes, and hand flags to an .npz file after converting to NumPy arrays.
@@ -473,7 +516,9 @@ class HandInfoExtractor:
             scene_pcd.save_point_cloud(os.path.join(scene_out_folder, f"{img_fn}.ply"))
 
             # save fetch cam aligned hamer hand mesh pc
-            output_path, pcd, out = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
+            output_path, pcd = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
+
+        return output_path, pcd, out
 
 
 if __name__ == "__main__":
@@ -499,4 +544,5 @@ if __name__ == "__main__":
             # Process each image file
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
+                import pdb; pdb.set_trace()
                 boxes, right, output_path, pcd, out = extractor.extract_info(img_path, save_mesh=True)
