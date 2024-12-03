@@ -29,6 +29,12 @@ chmod +x ./setup_perception.sh
 
 ## 🔧 Tools
 
+### Data Capture
+```shell
+python save_data.py <task-name> <data-interval>
+# start running the data capture ros node
+```
+
 ### 1. 👁️ Viewing `.obj` Files
 To visualize `.obj` files, use the following script:
 ```shell
