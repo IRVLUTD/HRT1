@@ -37,57 +37,155 @@ from tqdm import tqdm
 LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
 
 
+
+import cv2
+import numpy as np
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def load_depth_img(img_path):
     """
+    Loads a depth image corresponding to the given RGB image path.
+
+    This function replaces the 'rgb' directory with 'depth' and the file 
+    extension from '.jpg' to '.png' to locate the depth image. It reads the 
+    depth image, normalizes it by dividing by 1000 (to convert the depth 
+    values from millimeters to meters), and returns the depth data as a 
+    NumPy array.
+
     Source: https://github.com/IRVLUTD/hamer-depth/commit/070886168e469ab1645612a2c3b8c6473aab1aef#diff-6bacd8700314864adb2bf1d56bb841dab8e0ac87d88c8303caa83b545d0b4b9dR116
-    """    
-    # load depth
-    depth_path = str(img_path).replace('rgb', 'depth').replace('jpg', 'png')
-    depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH).astype(np.float32)
-    depth /= 1000.0 # as while capturing data, raw depth was multiplied by 1000 as stored as png
-    return depth
+
+    Args:
+        img_path (str): Path to the RGB image file.
+
+    Returns:
+        np.ndarray: Normalized depth image as a NumPy array.
+
+    Raises:
+        FileNotFoundError: If the depth image file does not exist.
+        ValueError: If the depth image cannot be loaded or is invalid.
+    """
+    try:
+        # Replace 'rgb' with 'depth' and change the extension to '.png'
+        depth_path = str(img_path).replace('rgb', 'depth').replace('jpg', 'png')
+        logger.info(f"Attempting to load depth image from: {depth_path}")
+
+        # Read the depth image
+        depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
+        if depth is None:
+            raise ValueError(f"Failed to load depth image from {depth_path}")
+
+        # Convert depth to float32 and normalize
+        depth = depth.astype(np.float32) / 1000.0
+        logger.info("Depth image loaded and normalized successfully.")
+
+        return depth
+
+    except FileNotFoundError as e:
+        logger.error(f"Depth image file not found: {e}")
+        raise
+
+    except ValueError as e:
+        logger.error(f"Error loading depth image: {e}")
+        raise
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while loading the depth image: {e}")
+        raise
+
 
 
 def get_my_intrinsic_matrix():
     """
-    Returns the intrinsic matrix of the target camera.
-    In our case: IRVL Fetch robot camera
+    Retrieves the intrinsic matrix of the target camera.
+
+    The intrinsic matrix describes the camera's internal parameters, including
+    focal lengths and the principal point. This function returns the intrinsic 
+    matrix of the IRVL Fetch robot camera.
+
+    Returns:
+        np.ndarray: A 3x3 intrinsic matrix of the target camera.
+
+    Example:
+        >>> intrinsic_matrix = get_my_intrinsic_matrix()
+        >>> print(intrinsic_matrix)
+        [[574.0528    0.      319.5   ]
+         [  0.      574.0528  239.5   ]
+         [  0.        0.        1.    ]]
     """
+    logger.info("Retrieving the intrinsic matrix of the IRVL Fetch robot camera.")
     intrinsic_matrix = np.array([
         [574.0527954101562, 0.0, 319.5],
         [0.0, 574.0527954101562, 239.5],
         [0.0, 0.0, 1.0]
     ])
+    logger.info("Intrinsic matrix successfully retrieved.")
     return intrinsic_matrix
 
-def obj_funcion(x, vertices, translation, K1, K2, kd_tree):
-    """
-    The obj_function logic 
-    - from https://github.com/IRVLUTD/hamer-depth/commit/070886168e469ab1645612a2c3b8c6473aab1aef#diff-6bacd8700314864adb2bf1d56bb841dab8e0ac87d88c8303caa83b545d0b4b9dR26
-    - Credit: Yu Xiang
-    """
-    # projection 1
-    V1 = vertices + translation
-    x1 = K1 @ V1.T
-    x1[0, :] /= x1[2, :]
-    x1[1, :] /= x1[2, :]
 
-    # projection 2
-    V2 = vertices + x
-    x2 = K2 @ V2.T
-    x2[0, :] /= x2[2, :]
-    x2[1, :] /= x2[2, :]
-    
-    # 3D distances
-    distances, indices = kd_tree.query(V2)
-    distances = distances.astype(np.float32).reshape(-1)
-    error_3d = np.mean(distances)
-    
-    # error
-    error_2d = np.square(x1[:2] - x2[:2]).mean()
-    return error_2d + 10 * error_3d
 
-class HandMeshBoundingBoxExtractor:
+def obj_function(x, vertices, translation, K1, K2, kd_tree, weight_3d=100):
+    """
+    Computes the objective function value for optimization.
+
+    This function calculates the combined error, which includes:
+    - 2D projection error between two sets of 3D vertices projected onto 
+      camera planes using intrinsic matrices.
+    - Weighted 3D distance error between the translated vertices and 
+      their nearest neighbors in a KD-tree.
+
+    Args:
+        x (np.ndarray): A 3D translation vector for the second projection (shape: (3,)).
+        vertices (np.ndarray): Nx3 array of 3D points (vertices).
+        translation (np.ndarray): A 3D translation vector for the first projection (shape: (3,)).
+        K1 (np.ndarray): 3x3 intrinsic matrix for the first camera.
+        K2 (np.ndarray): 3x3 intrinsic matrix for the second camera.
+        kd_tree (scipy.spatial.KDTree): KD-tree for nearest-neighbor search.
+        weight_3d (float, optional): Weight factor for the 3D error. Defaults to 100.
+
+    Returns:
+        float: The combined error value (2D projection error + weighted 3D error).
+    """
+    try:
+        # Projection 1
+        V1 = vertices + translation
+        x1 = K1 @ V1.T
+        x1[0, :] /= x1[2, :]
+        x1[1, :] /= x1[2, :]
+        logger.debug("Projection 1 completed.")
+
+        # Projection 2
+        V2 = vertices + x
+        x2 = K2 @ V2.T
+        x2[0, :] /= x2[2, :]
+        x2[1, :] /= x2[2, :]
+        logger.debug("Projection 2 completed.")
+
+        # Compute 3D distances
+        distances, _ = kd_tree.query(V2)
+        distances = distances.astype(np.float32).reshape(-1)
+        error_3d = np.mean(distances)
+        logger.debug(f"3D distance error: {error_3d}")
+
+        # Compute 2D projection error
+        error_2d = np.square(x1[:2] - x2[:2]).mean()
+        logger.debug(f"2D projection error: {error_2d}")
+
+        # Combine errors with weighting
+        total_error = error_2d + weight_3d * error_3d
+        logger.info(f"Total error: {total_error} (2D: {error_2d}, 3D: {error_3d}, Weight: {weight_3d})")
+
+        return total_error
+
+    except Exception as e:
+        logger.error(f"An error occurred while computing the objective function: {e}")
+        raise
+
+
+class HandInfoExtractor:
     def __init__(self, checkpoint: str = DEFAULT_CHECKPOINT, body_detector: str = 'vitdet', rescale_factor: float = 2.0):
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         download_models(CACHE_DIR_HAMER)
@@ -115,7 +213,7 @@ class HandMeshBoundingBoxExtractor:
             detectron2_cfg.model.roi_heads.box_predictor.test_nms_thresh = 0.4
         return DefaultPredictor_Lazy(detectron2_cfg)
 
-    def extract_bounding_boxes(self, img_path: str, save_mesh: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_info(self, img_path: str, save_mesh: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         # Get the root directory name (parent folder name)
         parent_dir = os.path.dirname(img_path)
         
@@ -162,9 +260,11 @@ class HandMeshBoundingBoxExtractor:
 
         # Optionally save the meshes
         if save_mesh:
-            self._save_meshes(img_cv2, boxes, right, img_path, parent_dir)
-
-        return boxes, right
+            output_path, pcd, out = self._save_meshes(img_cv2, boxes, right, img_path, parent_dir)
+        else:
+            output_path, pcd, out = None, None, None
+        
+        return boxes, right, output_path, pcd, out
 
     def convert_output_to_numpy(self, out):
         """
@@ -255,9 +355,6 @@ class HandMeshBoundingBoxExtractor:
                 white_img = (torch.ones_like(batch['img'][n]).cpu() - DEFAULT_MEAN[:,None,None]/255) / (DEFAULT_STD[:,None,None]/255)
                 input_patch = batch['img'][n].cpu() * (DEFAULT_STD[:,None,None]/255) + (DEFAULT_MEAN[:,None,None]/255)
                 input_patch = input_patch.permute(1,2,0).numpy()
-
-                # save the model output
-                self.save_output_as_npz(out, boxes, right, f"{model_out_folder}/{img_fn}.npz")
                 
                 # (easteregg) uncomment to plot hand cropped images
                 # """
@@ -308,10 +405,14 @@ class HandMeshBoundingBoxExtractor:
             cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
 
             # get the hand points
-            mask = 1 - cam_view[:,:,3] > 0
+            mask = cam_view[:,:,3] > 0
+            # eroder mask
+            kernel = np.ones((5, 5), np.uint8) 
+            mask = cv2.erode(mask.astype(np.uint8), kernel)
+            mask = 1 - mask 
+            intrinsic_matrix = get_my_intrinsic_matrix()
 
             # convert depth to point cloud
-            intrinsic_matrix = get_my_intrinsic_matrix()
             depth_pc = RGBD2PC(depth, intrinsic_matrix, camera_pose=np.eye(4), target_mask=mask, threshold=10.0)
 
             # solve new translation
@@ -319,9 +420,14 @@ class HandMeshBoundingBoxExtractor:
             K = np.array([[scaled_focal_length, 0, 320], [0, scaled_focal_length, 240], [0, 0, 1]]).astype(np.float32)
             x0 = np.mean(depth_pc.points, axis=0)
             
-            res = minimize(obj_funcion, x0, method='nelder-mead',
+            res = minimize(obj_function, x0, method='nelder-mead',
                         args=(all_verts[-1], all_cam_t[-1], K, intrinsic_matrix, depth_pc.kd_tree), options={'xatol': 1e-8, 'disp': True})
             translation_new = res.x
+
+            out['opt_translation'] = translation_new
+
+            # save the model output
+            self.save_output_as_npz(out, boxes, right, f"{model_out_folder}/{img_fn}.npz")
 
             # fig = plt.figure()
             # ax = fig.add_subplot(1, 3, 1)
@@ -349,8 +455,8 @@ class HandMeshBoundingBoxExtractor:
             # plt.title('projection using fetch camera')
 
             # ax = fig.add_subplot(1, 3, 3, projection='3d')
-            
-            # ax.scatter(depth_pc.points[::100, 0], depth_pc.points[::100, 1], depth_pc.points[::100, 2], marker='o')
+        
+            # ax.scatter(depth_pc.points[:, 0], depth_pc.points[:, 1], depth_pc.points[:, 2], marker='o')
             # ax.scatter(vertices[:, 0], vertices[:, 1], vertices[:, 2], marker='o', color='r')
 
             # ax.set_xlabel('X Label')
@@ -367,43 +473,8 @@ class HandMeshBoundingBoxExtractor:
             scene_pcd.save_point_cloud(os.path.join(scene_out_folder, f"{img_fn}.ply"))
 
             # save fetch cam aligned hamer hand mesh pc
-            output_path, pcd = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
+            output_path, pcd, out = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
 
-
-    def save_point_cloud_as_ply(vertices, output_folder, filename, colors=None):
-        """
-        Save a point cloud (with optional RGB colors) as a PLY file using Open3D.
-
-        Args:
-            vertices (numpy.ndarray): Nx3 array of 3D points.
-            output_folder (str): Directory to save the PLY file.
-            filename (str): Name of the output PLY file (without extension).
-            colors (numpy.ndarray, optional): Nx3 array of RGB colors (values in range [0, 255]).
-                                            If None, saves the point cloud without colors.
-
-        Returns:
-            str: Full path to the saved PLY file.
-        """
-        os.makedirs(output_folder, exist_ok=True)
-
-        # Create an Open3D PointCloud object
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(vertices)
-
-        # Add colors if provided
-        if colors is not None:
-            if colors.shape[0] != vertices.shape[0]:
-                raise ValueError("The number of color entries must match the number of vertices.")
-            pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalize RGB to [0, 1]
-
-        # Construct the full path for the PLY file
-        output_path = os.path.join(output_folder, f"{filename}.ply")
-
-        # Save the point cloud to a PLY file
-        o3d.io.write_point_cloud(output_path, pcd)
-        print(f"Point cloud saved to '{output_path}' using Open3D.")
-
-        return output_path, pcd
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images for hand mesh bounding box extraction.")
@@ -423,9 +494,9 @@ if __name__ == "__main__":
         if not image_files:
             raise Exception(f"No image files found in the directory '{input_dir}'.")
         else:
-            extractor = HandMeshBoundingBoxExtractor()
+            extractor = HandInfoExtractor()
 
             # Process each image file
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
-                boxes, right = extractor.extract_bounding_boxes(img_path, save_mesh=True)
+                boxes, right, output_path, pcd, out = extractor.extract_info(img_path, save_mesh=True)
