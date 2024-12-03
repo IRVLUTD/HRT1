@@ -13,9 +13,13 @@ A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https:
 # Clone the repository
 git clone --recursive https://github.com/IRVLUTD/mm-demo && cd mm-demo
 
-# Create a conda environment
+# Create a conda environment from scratch
 conda create -n 1-shot python=3.10  # Python 3.10 required for samv2 and hamer dependencies
 conda activate 1-shot
+
+# Conda create using our yml
+conda env create -f iTeachSkills.yml
+conda activate robokit-py3.10
 
 # Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
