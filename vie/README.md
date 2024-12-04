@@ -27,10 +27,7 @@ chmod +x ./setup_vie.sh
 
 ---
 
-<video controls>
-  <source src="../media/vie-obj.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
 
 ## 🔧 Tools
 
