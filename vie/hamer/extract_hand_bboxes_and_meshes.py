@@ -22,13 +22,14 @@ from scipy.optimize import minimize
 # import matplotlib.pyplot as plt
 
 # Import custom modules
+from mesh_to_sdf.rgbd2pc import RGBD2PC
 from hamer.utils import recursive_to
 from hamer.configs import CACHE_DIR_HAMER
 from hamer.models import download_models, load_hamer, DEFAULT_CHECKPOINT
 from hamer.datasets.vitdet_dataset import ViTDetDataset, DEFAULT_MEAN, DEFAULT_STD
 from hamer.utils.renderer import Renderer, cam_crop_to_full
 from vitpose_model import ViTPoseModel
-from mesh_to_sdf.rgbd2pc import RGBD2PC
+
 
 from tqdm import tqdm
 from dataclasses import dataclass
@@ -471,12 +472,15 @@ class HandInfoExtractor:
             K = np.array([[scaled_focal_length, 0, 320], [0, scaled_focal_length, 240], [0, 0, 1]]).astype(np.float32)
             x0 = np.mean(depth_pc.points, axis=0)
             
-            res = minimize(obj_function, x0, method='nelder-mead',
-                        args=(all_verts[-1], all_cam_t[-1], K, intrinsic_matrix, depth_pc.kd_tree), options={'xatol': 1e-8, 'disp': True})
-            translation_new = res.x
+            out['opt_translation'] = []
 
-            out['opt_translation'] = translation_new
-
+            for i in range(len(all_verts)):
+                res = minimize(obj_function, x0, method='nelder-mead',
+                            args=(all_verts[i], all_cam_t[i], K, intrinsic_matrix, depth_pc.kd_tree), options={'xatol': 1e-8, 'disp': True})
+                translation_new = res.x
+                out['opt_translation'].append(translation_new)
+            
+            out['opt_translation'] = np.asarray(out['opt_translation'])            
             # save the model output
             self.save_output_as_npz(out, boxes, right, f"{model_out_folder}/{img_fn}.npz")
 
@@ -516,15 +520,16 @@ class HandInfoExtractor:
             # plt.show()               
 
             # save rgbd scene pc
-            RT_file = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'pose', f'{img_fn}.npz')
-            RT = np.load(RT_file)['RT_camera'] # not using as of now
+            # RT_file = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'pose', f'{img_fn}.npz')
+            # RT = np.load(RT_file)['RT_camera'] # not using as of now
             img_cv2 = img_cv2.astype(np.float32)[:, :, ::-1]  # Convert from BGR to RGB
             RT = np.eye(4)
             scene_pcd = RGBD2PC(depth, intrinsic_matrix, rgb=img_cv2, camera_pose=RT, target_mask=None, threshold=10.0)
             scene_pcd.save_point_cloud(os.path.join(scene_out_folder, f"{img_fn}.ply"))
 
             # save fetch cam aligned hamer hand mesh pc
-            output_path, pcd = self.save_point_cloud_as_ply(all_verts[-1] + translation_new, _3dhand_out_folder, f"{img_fn}")
+            for i in range(len(all_verts)):
+                output_path, pcd = self.save_point_cloud_as_ply(all_verts[i] + out['opt_translation'][i], _3dhand_out_folder, f"{img_fn}_{int(all_right[i])}")
 
         return output_path, pcd, out
 
