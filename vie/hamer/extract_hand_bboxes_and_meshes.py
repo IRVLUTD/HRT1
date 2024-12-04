@@ -30,21 +30,29 @@ from hamer.utils import recursive_to
 from hamer.datasets.vitdet_dataset import ViTDetDataset
 from hamer.utils.renderer import Renderer, cam_crop_to_full
 from vitpose_model import ViTPoseModel
-from typing import Tuple
 from hamer.datasets.vitdet_dataset import ViTDetDataset, DEFAULT_MEAN, DEFAULT_STD
 from tqdm import tqdm
 
 LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
 
-
-
-import cv2
-import numpy as np
 import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class ExtractorOutput:
+    hand_boxes: np.ndarray
+    is_right: np.ndarray
+    output_path: Optional[str] = None
+    pcd: Optional[object] = None
+    out: Optional[object] = None
+
 
 def load_depth_img(img_path):
     """
@@ -213,7 +221,7 @@ class HandInfoExtractor:
             detectron2_cfg.model.roi_heads.box_predictor.test_nms_thresh = 0.4
         return DefaultPredictor_Lazy(detectron2_cfg)
 
-    def extract_info(self, img_path: str, save_mesh: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_info(self, img_path: str, save_mesh: bool = False):
         # Get the root directory name (parent folder name)
         parent_dir = os.path.dirname(img_path)
         
@@ -263,9 +271,9 @@ class HandInfoExtractor:
             output_path, pcd, out = self._save_meshes(img_cv2, boxes, right, img_path, parent_dir)
         else:
             output_path, pcd, out = None, None, None
-        
-        return boxes, right, output_path, pcd, out
 
+        return ExtractorOutput(hand_boxes=boxes, is_right=right, output_path=output_path, pcd=pcd, out=out)
+        
     def convert_output_to_numpy(self, out):
         """
         Convert the output dictionary with PyTorch tensors and additional data (bboxes, is_right) to NumPy arrays.
@@ -539,10 +547,12 @@ if __name__ == "__main__":
         if not image_files:
             raise Exception(f"No image files found in the directory '{input_dir}'.")
         else:
-            extractor = HandInfoExtractor()
+            hand_info_extractor = HandInfoExtractor()
 
             # Process each image file
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
-                import pdb; pdb.set_trace()
-                boxes, right, output_path, pcd, out = extractor.extract_info(img_path, save_mesh=True)
+                
+                logging.info("Starting extraction...")
+                result = hand_info_extractor.extract_info(img_path, save_mesh=True)
+                logging.info("Extraction completed.")
