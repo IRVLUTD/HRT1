@@ -22,13 +22,13 @@ from scipy.optimize import minimize
 # import matplotlib.pyplot as plt
 
 # Import custom modules
-from mesh_to_sdf.rgbd2pc import RGBD2PC
+from hamer.utils import recursive_to
 from hamer.configs import CACHE_DIR_HAMER
 from hamer.models import download_models, load_hamer, DEFAULT_CHECKPOINT
-from hamer.utils import recursive_to
 from hamer.datasets.vitdet_dataset import ViTDetDataset, DEFAULT_MEAN, DEFAULT_STD
 from hamer.utils.renderer import Renderer, cam_crop_to_full
 from vitpose_model import ViTPoseModel
+from mesh_to_sdf.rgbd2pc import RGBD2PC
 
 from tqdm import tqdm
 from dataclasses import dataclass

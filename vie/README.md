@@ -27,35 +27,14 @@ chmod +x ./setup_vie.sh
 
 ---
 
+<video controls>
+  <source src="../media/vie-obj.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 ## 🔧 Tools
 
-### 1. Data Capture
-```shell
-# start running the data capture ros node
-python save_data.py <task-name> <data-interval>
-```
-
-### After data capture following would be the data dir structure
-```
-├── data_captured
-    ├── <task-name>-1/
-        ├── rgb/
-            ├── 000000.jpg
-            ├── 000001.jpg
-            └── ...
-        ├── depth/
-            ├── 000000.png
-            ├── 000001.png
-            └── ...
-        └── pose/
-            ├── 000000.npz
-            ├── 000001.npz
-            └── ...
-    ├── <task-name>-2/
-    ├── <task-name>-.../
-```
-
-### 2. 🤖 Testing GDINO Prompts
+### 1. 🤖 Testing GDINO Prompts
 To test GDINO with a text prompt:
 ```shell
 cp scripts/test_gdino_prompts.py .
@@ -63,7 +42,7 @@ python test_gdino_prompts.py --input_dir ./imgs/test/000100/rgb --text_prompt <o
 # The output will be saved in: /imgs/test/000100/out/gdino/<obj_text_prompt>
 ```
 
-### 3. 🔍 Testing GDINO + SAMv2
+### 2. 🔍 Testing GDINO + SAMv2
 To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
 ```shell
 cp scripts/test_gdino_samv2.py .
@@ -73,10 +52,12 @@ python test_gdino_samv2.py --input_dir ./imgs/test/000100/rgb --text_prompt <obj
 # ../imgs/test/000100/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
 
-### 4. ✋ Extracting Right/Left Hand BBoxes and Meshes
+### 3. ✋ Extracting Right/Left Hand BBoxes and Meshes
+![vie-hand](../media/imgs/vie-hand.png)
+
 To extract right(1) / left(0) hand bounding boxes and 3D meshes
 - Assuming only one person in the scene
-- <red style="color:red">Frames containing atleast one hand will only be saved in `out/hamer/model`</red>
+- <red style="color:red">Frames containing atleast one hand will be only saved in `out/hamer/model`</red>
 ```shell
 cd hamer
 python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/test/000100/rgb"
