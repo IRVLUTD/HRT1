@@ -6,7 +6,7 @@
 # 🖋️ Jishnu Jaykumar Padalunkal (2024).
 #----------------------------------------------------------------------------------------------------
 
-# Purpose: For perception pipeling setup
+# Purpose: For vie eco-system setup
 
 # Define the root directory
 ROOT_DIR=$PWD
