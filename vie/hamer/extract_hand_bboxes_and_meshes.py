@@ -13,37 +13,37 @@ We have not modified this ability. In our setup, we make sure that one scene con
 import os
 import cv2
 import torch
+import logging
 import argparse
 import numpy as np
-
-
-from scipy.optimize import minimize
 import open3d as o3d
-from mesh_to_sdf.rgbd2pc import RGBD2PC
-import matplotlib.pyplot as plt
-
-
 from pathlib import Path
+from scipy.optimize import minimize
+# import matplotlib.pyplot as plt
+
+# Import custom modules
+from hamer.utils import recursive_to
 from hamer.configs import CACHE_DIR_HAMER
 from hamer.models import download_models, load_hamer, DEFAULT_CHECKPOINT
-from hamer.utils import recursive_to
-from hamer.datasets.vitdet_dataset import ViTDetDataset
+from hamer.datasets.vitdet_dataset import ViTDetDataset, DEFAULT_MEAN, DEFAULT_STD
 from hamer.utils.renderer import Renderer, cam_crop_to_full
 from vitpose_model import ViTPoseModel
-from hamer.datasets.vitdet_dataset import ViTDetDataset, DEFAULT_MEAN, DEFAULT_STD
+from mesh_to_sdf.rgbd2pc import RGBD2PC
+
 from tqdm import tqdm
-
-LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
-
-import logging
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
 from dataclasses import dataclass
 from typing import Optional
+
+# Logging configuration
+logging.basicConfig(
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Constants
+LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
+
 
 @dataclass
 class ExtractorOutput:
