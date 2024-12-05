@@ -50,7 +50,7 @@ python test_gdino_samv2.py --input_dir ./imgs/test/000100/rgb --text_prompt <obj
 ```
 
 ### 3. ✋ Extracting Right/Left Hand BBoxes and Meshes
-![vie-hand](../media/imgs/vie-hand.png)
+![vie-hand](../media/data_capture/vie-hand.png)
 
 To extract right(1) / left(0) hand bounding boxes and 3D meshes
 - Assuming only one person in the scene

@@ -33,7 +33,7 @@ from vitpose_model import ViTPoseModel
 
 from tqdm import tqdm
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 # Logging configuration
 logging.basicConfig(
@@ -50,8 +50,8 @@ LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
 class ExtractorOutput:
     hand_boxes: np.ndarray
     is_right: np.ndarray
-    output_path: Optional[str] = None
-    pcd: Optional[object] = None
+    output_path: Optional[List[str]] = None
+    pcd: Optional[List[object]] = None
     out: Optional[object] = None
 
 

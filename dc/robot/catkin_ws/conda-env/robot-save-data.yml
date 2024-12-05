@@ -1,0 +1,32 @@
+name: save-data
+channels:
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - ca-certificates=2024.9.24=h06a4308_0
+  - certifi=2020.6.20=pyhd3eb1b0_3
+  - libffi=3.4.4=h6a678d5_1
+  - libgcc-ng=11.2.0=h1234567_1
+  - libgomp=11.2.0=h1234567_1
+  - libstdcxx-ng=11.2.0=h1234567_1
+  - ncurses=6.4=h6a678d5_0
+  - pip=19.3.1=py27_0
+  - python=2.7.18=h42bf7aa_3
+  - readline=8.2=h5eee18b_0
+  - setuptools=44.0.0=py27_0
+  - sqlite=3.45.3=h5eee18b_0
+  - tk=8.6.14=h39e8969_0
+  - wheel=0.37.1=pyhd3eb1b0_0
+  - zlib=1.2.13=h5eee18b_1
+  - pip:
+      - catkin-pkg==0.5.2
+      - docutils==0.18.1
+      - numpy==1.16.6
+      - pyparsing==2.4.7
+      - python-dateutil==2.9.0.post0
+      - pyyaml==5.4.1
+      - ros-numpy==0.0.5
+      - rospkg==1.5.1
+      - six==1.16.0
+prefix: /home/fetch/miniconda3/envs/save-data
