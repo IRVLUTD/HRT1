@@ -1,7 +1,7 @@
 
 # 🛠️ Hardware Setup for Data Collection
 
-![📸 Overview of the data capture process](../media/imgs/dc.png)
+![📸 Overview of the data capture process](../media/data_capture/dc.png)
 
 ---
 
