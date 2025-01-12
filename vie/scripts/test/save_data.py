@@ -57,7 +57,7 @@ class SaveData:
             # np.savez("{}_pose.npz".format(os.path.join(self.pose_dir_name, "{:06d}".format(data_count))), RT_camera=RT_camera, RT_base=RT_base, robot_velocity=robot_velocity, RT_goal=RT_goal)
             
             cv2.imwrite("{}.jpg".format(os.path.join(self.color_dir_name, "{:06d}".format(data_count))), rgb)
-            cv2.imwrite("{}.jpg".format(os.path.join(self.depth_dir_name, "{:06d}".format(data_count))), depth)
+            cv2.imwrite("{}.png".format(os.path.join(self.depth_dir_name, "{:06d}".format(data_count))), depth)
             #cv2.imwrite("{}_map.png".format(os.path.join(self.map_dir_name, "{:06d}".format(data_count))), map_data.astype(np.uint8))
             rospy.sleep(self.time_delay)
             data_count += 1

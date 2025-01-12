@@ -21,7 +21,6 @@ from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 from sam2.build_sam import build_sam2_video_predictor
 from matplotlib import (patches, pyplot as plt)
 import matplotlib.cm as cm
@@ -466,6 +465,8 @@ class SAM2VideoPredictor(ObjectPredictor):
             if mask.dtype != np.uint8:
                 mask = mask.astype(np.uint8)
 
+            mask[mask > 0] = 255
+
             # Convert the NumPy array to a PIL image
             mask_image = PILImg.fromarray(mask)
 
@@ -533,8 +534,8 @@ class SAM2VideoPredictor(ObjectPredictor):
                         (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
                         linewidth=2, edgecolor="cyan", facecolor="none"))
                     
-                    out_file_name = f"{out_frame_idx:06d}.png"
-
+                    out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
+                    
                     # Show segmentation masks
                     for out_obj_id, out_mask in video_segments[out_frame_idx].items():
                         self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)

@@ -15,6 +15,7 @@ numpy==1.26.4
 supervision==0.18.0
 rospkg
 transforms3d
+pyrender
 
 # -------------------
 # HumanPoseHandBoxes
@@ -26,3 +27,15 @@ mediapipe
 # -------------------
 mmpose
 mmengine
+
+# -------------------
+# rfp-grasp-transfer
+# -------------------
+plotly
+pytorch_kinematics
+numpy-quaternion
+
+# -------------------
+# rfp-grasp-transfer
+# -------------------
+networkx #==3.4.2

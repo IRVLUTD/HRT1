@@ -11,6 +11,7 @@ We have not modified this ability. In our setup, we make sure that one scene con
 """
 
 import os
+import re
 import cv2
 import torch
 import logging
@@ -465,7 +466,7 @@ class HandInfoExtractor:
             intrinsic_matrix = get_my_intrinsic_matrix()
 
             # convert depth to point cloud
-            depth_pc = RGBD2PC(depth, intrinsic_matrix, camera_pose=np.eye(4), target_mask=mask, threshold=10.0)
+            depth_pc = RGBD2PC(depth, intrinsic_matrix, camera_pose=np.eye(4), target_mask=mask, threshold=10.0, use_kmeans=True)
 
             # solve new translation
             scaled_focal_length = scaled_focal_length.item()
@@ -480,7 +481,8 @@ class HandInfoExtractor:
                 translation_new = res.x
                 out['opt_translation'].append(translation_new)
             
-            out['opt_translation'] = np.asarray(out['opt_translation'])            
+            out['opt_translation'] = np.asarray(out['opt_translation']) 
+        
             # save the model output
             self.save_output_as_npz(out, boxes, right, f"{model_out_folder}/{img_fn}.npz")
 
@@ -554,10 +556,16 @@ if __name__ == "__main__":
         else:
             hand_info_extractor = HandInfoExtractor()
 
+            image_files = sorted(image_files, key=lambda x: int(re.search(r'\d+', x).group()))
+
             # Process each image file
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
                 
                 logging.info("Starting extraction...")
-                result = hand_info_extractor.extract_info(img_path, save_mesh=True)
+                try:
+                    result = hand_info_extractor.extract_info(img_path, save_mesh=True)
+                except:
+                    print("Skipping...")
+                    continue
                 logging.info("Extraction completed.")
