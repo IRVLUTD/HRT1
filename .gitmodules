@@ -2,15 +2,4 @@
 [submodule "vie/rfp-grasp-transfer"]
 	path = vie/rfp-grasp-transfer
 	url = https://github.com/IRVLUTD/rfp-grasp-transfer.git
-[submodule "vie/EfficientLoFTR"]
-	path = vie/EfficientLoFTR
-	url = https://github.com/zju3dv/EfficientLoFTR.git
-[submodule "vie/mickey"]
-	path = vie/mickey
-	url = https://github.com/nianticlabs/mickey.git
-[submodule "vie/BundleSDF"]
-	path = vie/BundleSDF
-	url = https://github.com/NVlabs/BundleSDF
-[submodule "vie/hand_object_detector"]
-	path = vie/hand_object_detector
-	url = https://github.com/ddshan/hand_object_detector
+
