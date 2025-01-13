@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-"""Test GroundingSAM on ros images"""
+"""
+RUN: python ros_test_images.py ./_DATA/new-data-from-fetch-and-laptop/22tasks/task_15_19s-use-knife/
+"""
 
 import rospy
 import threading
@@ -115,7 +117,7 @@ class ImageListener:
     def run_network(self):
 
         with lock:
-            if listener.im is None:
+            if self.im is None:
               return
             im_color = self.im.copy()
             depth_img = self.depth.copy()
@@ -162,6 +164,7 @@ class ImageListener:
 
         # publish segmentation mask
         label = mask
+        self.mask=mask
         label_msg = ros_numpy.msgify(Image, label.astype(np.uint8), 'mono8')
         label_msg.header.stamp = rgb_frame_stamp
         label_msg.header.frame_id = rgb_frame_id
@@ -190,9 +193,188 @@ class ImageListener:
         rgb_msg.header.frame_id = rgb_frame_id
         self.image_pub.publish(rgb_msg)
 
+        return self.im, self.depth, self.mask
+
+import cv2
+def draw_pose_axis(image, pose_matrix, intrinsic_matrix, axis_length=0.1, thickness=2, color_scheme=None):
+    """
+    Draws a 3D pose axis on the image based on the pose matrix.
+
+    Args:
+        image (np.ndarray): The RGB image to draw on.
+        pose_matrix (np.ndarray): The 4x4 transformation matrix (pose).
+        intrinsic_matrix (np.ndarray): The camera intrinsic matrix.
+        axis_length (float): Length of the axis in world units.
+        thickness (int): Thickness of the axis lines.
+        color_scheme (tuple): Optional tuple of colors for the axes.
+    
+    Returns:
+        np.ndarray: The image with the pose axis drawn.
+    """
+    # Default axis colors: (X: Red, Y: Green, Z: Blue)
+    colors = color_scheme or [(0, 0, 255), (0, 255, 0), (255, 0, 0)]
+
+    # Define axis points (X, Y, Z) in the object frame
+    axis_points = np.array([
+        [0, 0, 0, 1],             # Origin
+        [axis_length, 0, 0, 1],   # X-axis
+        [0, axis_length, 0, 1],   # Y-axis
+        [0, 0, axis_length, 1]    # Z-axis
+    ]).T  # Shape: (4, 4)
+
+    # Transform axis points to the camera frame using the pose matrix
+    transformed_points = pose_matrix @ axis_points
+
+    # Project the 3D points to 2D image space
+    points_2d = intrinsic_matrix @ transformed_points[:3, :]
+    points_2d /= points_2d[2]  # Normalize by depth (z-coordinate)
+
+    # Extract pixel coordinates
+    points_2d = points_2d[:2].T.astype(int)  # Shape: (4, 2)
+
+    # Draw axes on the image
+    origin = tuple(points_2d[0])  # Origin
+    for i, color in enumerate(colors):  # Draw X, Y, Z axes
+        image = cv2.line(image, origin, tuple(points_2d[i + 1]), color, thickness)
+
+    return image
+
+import os
+import sys
+import shutil
+import subprocess
+
+
+
 
 if __name__ == '__main__':
     # image listener
     listener = ImageListener()
+    
+    # Define paths
+
+    task_dir = sys.argv[1]
+    root_dir = os.path.dirname(os.path.normpath(task_dir))
+    realworld_dir = "realworld"
+    rgb_source_dir = os.path.join(task_dir, "rgb")
+    depth_source_dir = os.path.join(task_dir, "depth")
+    text_prompt = os.listdir(os.path.join(task_dir, "out", "samv2"))[0].replace('_',' ')
+    mask_source_dir = os.path.join(task_dir, "out", "samv2", text_prompt.lower().replace(' ','_'), "obj_masks")
+    realworld_rgb_dir = os.path.join(realworld_dir, "rgb")
+    realworld_depth_dir = os.path.join(realworld_dir, "depth")
+    realworld_mask_dir = os.path.join(realworld_dir, "masks")
+    cam_k_file_source = os.path.join(root_dir, "cam_K.txt")
+    cam_k_file_target = os.path.join(realworld_dir, "cam_K.txt")
+
+    # Create the realworld directory structure
+    os.makedirs(realworld_rgb_dir, exist_ok=True)
+    os.makedirs(realworld_depth_dir, exist_ok=True)
+    os.makedirs(realworld_mask_dir, exist_ok=True)
+
+    # Select and copy the first frame (assumed to be 000000.jpg)
+    first_frame = "000000.jpg"
+    first_frame_source = os.path.join(rgb_source_dir, first_frame)
+    first_frame_target = os.path.join(realworld_rgb_dir, first_frame)
+
+    if os.path.exists(first_frame_source):
+        shutil.copy(first_frame_source, first_frame_target)
+        print(f"Copied {first_frame_source} to {first_frame_target}")
+    else:
+        print(f"First frame {first_frame_source} does not exist.")
+
+    # Select and copy the depth of the first frame
+    first_frame_depth = "000000.png"  # Assuming mask files are PNG with matching names
+    first_frame_depth_source = os.path.join(depth_source_dir, first_frame_depth)
+    first_frame_depth_target = os.path.join(realworld_depth_dir, first_frame_depth)
+
+    if os.path.exists(first_frame_depth_source):
+        shutil.copy(first_frame_depth_source, first_frame_depth_target)
+        print(f"Copied {first_frame_depth_source} to {first_frame_depth_target}")
+    else:
+        print(f"Mask for the first frame {first_frame_depth_source} does not exist.")
+
+
+    # Select and copy the mask of the first frame
+    first_frame_mask = "000000.png"  # Assuming mask files are PNG with matching names
+    first_frame_mask_source = os.path.join(mask_source_dir, first_frame_mask)
+    first_frame_mask_target = os.path.join(realworld_mask_dir, first_frame_mask)
+
+    if os.path.exists(first_frame_mask_source):
+        shutil.copy(first_frame_mask_source, first_frame_mask_target)
+        print(f"Copied {first_frame_mask_source} to {first_frame_mask_target}")
+    else:
+        print(f"Mask for the first frame {first_frame_mask_source} does not exist.")
+
+    # Copy cam_K.txt to realworld
+    if os.path.exists(cam_k_file_source):
+        shutil.copy(cam_k_file_source, cam_k_file_target)
+        print(f"Copied {cam_k_file_source} to {cam_k_file_target}")
+    else:
+        print(f"{cam_k_file_source} does not exist.")
+    
+    
+    print('Step-2: Get real time rgb, depth, masks from robot')
+
+    # image listener
+    listener = ImageListener()
     while not rospy.is_shutdown():
-       listener.run_network()
+        input("Continue to get real time rgbd+gsam-mask?")
+        img, depth, mask = listener.run_network()
+
+        # File paths
+        rgb_path = os.path.join(realworld_rgb_dir, "000001.jpg")
+        depth_path = os.path.join(realworld_depth_dir, "000001.png")
+        mask_path = os.path.join(realworld_mask_dir, "000001.png")
+
+        PILImg.fromarray(img).save(rgb_path)
+        PILImg.fromarray(depth).save(depth_path)
+        PILImg.fromarray(mask).save(mask_path)
+
+
+        input("Continue to run bundlesdf?")
+
+        # run bundlesdf inside container
+        command = [
+            "python", "run_custom.py",
+            "--mode", "run_video",
+            "--video_dir", realworld_dir,
+            "--out_folder", f"{realworld_dir}/out/bundlesdf",
+            "--use_segmenter", "0",
+            "--use_gui", "1",
+            "--debug_level", "2",
+        ]
+        
+        print("Running BSDF with command:")
+        print(" ".join(command))
+        
+        try:
+            subprocess.run(command, check=True)
+            print("BSDF process completed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error running BSDF: {e}")
+        
+        # Load images
+        img1 = cv2.imread(f"{realworld_rgb_dir}/000000.jpg")
+        img2 = cv2.imread(f"{realworld_rgb_dir}/000001.jpg")
+
+        # Load pose matrices
+        pose1 = np.loadtxt(f"{realworld_dir}/out/bundlesdf/ob_in_cam/000000.jpg.txt")
+        pose2 = np.loadtxt(f"{realworld_dir}/out/bundlesdf/ob_in_cam/000001.jpg.txt")
+
+        # Camera intrinsic matrix (example)
+        K = np.loadtxt(cam_k_file_source)
+
+        # Step 1: Draw the reference pose (pose1) and relative pose (pose2) in the first image
+        relative_pose_1 = np.linalg.inv(pose1) @ pose2  # Pose2 relative to Pose1
+        img1_with_pose = draw_pose_axis(img1.copy(), pose1, K)  # Draw pose1
+        img1_with_pose = draw_pose_axis(img1_with_pose, relative_pose_1, K, color_scheme=[(255, 0, 255), (255, 255, 0), (0, 255, 255)])  # Draw pose2 relative to pose1
+
+        # Step 2: Draw the reference pose (pose1) and relative pose (pose2) in the second image
+        img2_with_pose = draw_pose_axis(img2.copy(), pose1, K)  # Draw pose1 in the second image
+        img2_with_pose = draw_pose_axis(img2_with_pose, pose2, K, color_scheme=[(255, 0, 255), (255, 255, 0), (0, 255, 255)])  # Draw pose2 directly
+
+        # Save the output images
+        cv2.imwrite("000000_with_pose.png", img1_with_pose)
+        cv2.imwrite("000001_with_pose.png", img2_with_pose)
+
+        print("Poses drawn and saved as '000000_with_pose.png' and '000001_with_pose.png'.")
