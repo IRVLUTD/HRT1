@@ -3,8 +3,6 @@ A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https:
 
 - [`dc/`](dc/) contains the HoloLens app for data capture
 - [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules
-- [`traj/`](traj/) would contain the logic for traj imitation/following
-- [`dataloader/`](dataloader/) contains the pytorch dataloader for human demo
 
 
 ## Setup
