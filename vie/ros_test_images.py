@@ -1,20 +1,27 @@
 #!/usr/bin/env python
 
 """
-RUN: python ros_test_images.py ./_DATA/new-data-from-fetch-and-laptop/22tasks/task_15_19s-use-knife/
+RUN: python ros_test_images.py ./_DATA/new-data-from-fetch-and-laptop/22tasks/task_15_19s-use-knife/ "knife"
 """
 
+import os
+import cv2
+import sys
+import time
 import rospy
+import shutil
 import threading
 import ros_numpy
+import subprocess
 import numpy as np
 import message_filters
 from PIL import Image as PILImg
+from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
-lock = threading.Lock()
 
+lock = threading.Lock()
 
 def compute_xyz(depth_img, fx, fy, px, py, height, width):
     indices = np.indices((height, width), dtype=np.float32).transpose(1,2,0)
@@ -27,17 +34,18 @@ def compute_xyz(depth_img, fx, fy, px, py, height, width):
 
 class ImageListener:
 
-    def __init__(self, camera='Fetch'):
+    def __init__(self, text_prompt, camera='Fetch'):
 
         self.im = None
         self.depth = None
         self.rgb_frame_id = None
         self.rgb_frame_stamp = None
         self.counter = 0
-        self.output_dir = 'output/real_world'
-
+        self.text_prompt = text_prompt
+        self.trigger_flag = None
+    
         # initialize network
-        self.text_prompt =  'objects'          
+        self.text_prompt =  ''          
         self.gdino = GroundingDINOObjectPredictor()
         self.SAM = SegmentAnythingPredictor()     
 
@@ -46,6 +54,8 @@ class ImageListener:
         self.label_pub = rospy.Publisher('seg_label_refined', Image, queue_size=10)
         self.score_pub = rospy.Publisher('seg_score', Image, queue_size=10)     
         self.image_pub = rospy.Publisher('seg_image', Image, queue_size=10)
+
+        rospy.Subscriber('/collect_mask_for_opt', String, self.trigger_for_save_pre_post_base_opt_mask_img)
 
         if camera  == 'Fetch':
             self.base_frame = 'base_link'
@@ -96,6 +106,10 @@ class ImageListener:
 
         if depth.encoding == '32FC1':
             depth_cv = ros_numpy.numpify(depth)
+            depth_cv[np.isnan(depth_cv)] = 0
+            depth_cv = depth_cv * 1000
+            depth_cv = depth_cv.astype(np.uint16)
+
         elif depth.encoding == '16UC1':
             depth_cv = ros_numpy.numpify(depth).copy().astype(np.float32)
             depth_cv /= 1000.0
@@ -118,17 +132,18 @@ class ImageListener:
 
         with lock:
             if self.im is None:
-              return
+                return
             im_color = self.im.copy()
             depth_img = self.depth.copy()
             rgb_frame_id = self.rgb_frame_id
             rgb_frame_stamp = self.rgb_frame_stamp
-
+            rospy.sleep(1)
         print('===========================================')
 
         # bgr image
         im = im_color.astype(np.uint8)[:, :, (2, 1, 0)]
         img_pil = PILImg.fromarray(im)
+        # self.text_prompt = text_prompt
         bboxes, phrases, gdino_conf = self.gdino.predict(img_pil, self.text_prompt)
 
         # Scale bounding boxes to match the original image size
@@ -194,8 +209,27 @@ class ImageListener:
         self.image_pub.publish(rgb_msg)
 
         return self.im, self.depth, self.mask
+    
 
-import cv2
+
+    def trigger_for_save_pre_post_base_opt_mask_img(self, msg):
+        self.trigger_flag = msg.data
+
+
+    def save_mask(self, filename, img, depth, mask):
+        # File paths
+        rgb_path = os.path.join("/tmp", "{}_rgb.jpg".format(filename))
+        depth_path = os.path.join("/tmp", "{}_depth.png".format(filename))
+        mask_path = os.path.join("/tmp", "{}_mask.png".format(filename))
+
+        cv2.imwrite(depth_path, depth)
+        mask[mask > 0] = 255
+        cv2.imwrite(mask_path, mask)
+        
+        PILImg.fromarray(img).save(rgb_path)
+
+
+
 def draw_pose_axis(image, pose_matrix, intrinsic_matrix, axis_length=0.1, thickness=2, color_scheme=None):
     """
     Draws a 3D pose axis on the image based on the pose matrix.
@@ -239,27 +273,32 @@ def draw_pose_axis(image, pose_matrix, intrinsic_matrix, axis_length=0.1, thickn
 
     return image
 
-import os
-import sys
-import shutil
-import subprocess
+
+def pre_post_mask_capture(listener):
+    while listener.trigger_flag is None:
+        continue
+    
+    img, depth, mask = listener.run_network()
+    listener.save_mask(listener.trigger_flag, img, depth, mask)
+    listener.trigger_flag = None
 
 
 
 
 if __name__ == '__main__':
     # image listener
-    listener = ImageListener()
-    
-    # Define paths
+    task_dir, text_prompt = sys.argv[1], sys.argv[2]
+    listener = ImageListener(text_prompt=text_prompt)
+    rospy.sleep(3)
 
-    task_dir = sys.argv[1]
+    # Define paths
     root_dir = os.path.dirname(os.path.normpath(task_dir))
     realworld_dir = "realworld"
     rgb_source_dir = os.path.join(task_dir, "rgb")
     depth_source_dir = os.path.join(task_dir, "depth")
-    text_prompt = os.listdir(os.path.join(task_dir, "out", "samv2"))[0].replace('_',' ')
-    mask_source_dir = os.path.join(task_dir, "out", "samv2", text_prompt.lower().replace(' ','_'), "obj_masks")
+    # text_prompt = os.listdir(os.path.join(task_dir, "out", "samv2"))[0].replace('_',' ')
+    sam2_out_dir = os.path.join(task_dir, "out", "samv2")
+    mask_source_dir = os.path.join(sam2_out_dir, os.listdir(sam2_out_dir)[-1], "obj_masks")
     realworld_rgb_dir = os.path.join(realworld_dir, "rgb")
     realworld_depth_dir = os.path.join(realworld_dir, "depth")
     realworld_mask_dir = os.path.join(realworld_dir, "masks")
@@ -316,65 +355,61 @@ if __name__ == '__main__':
     print('Step-2: Get real time rgb, depth, masks from robot')
 
     # image listener
-    listener = ImageListener()
-    while not rospy.is_shutdown():
-        input("Continue to get real time rgbd+gsam-mask?")
-        img, depth, mask = listener.run_network()
-
-        # File paths
-        rgb_path = os.path.join(realworld_rgb_dir, "000001.jpg")
-        depth_path = os.path.join(realworld_depth_dir, "000001.png")
-        mask_path = os.path.join(realworld_mask_dir, "000001.png")
-
-        PILImg.fromarray(img).save(rgb_path)
-        PILImg.fromarray(depth).save(depth_path)
-        PILImg.fromarray(mask).save(mask_path)
-
-
-        input("Continue to run bundlesdf?")
-
-        # run bundlesdf inside container
-        command = [
-            "python", "run_custom.py",
-            "--mode", "run_video",
-            "--video_dir", realworld_dir,
-            "--out_folder", f"{realworld_dir}/out/bundlesdf",
-            "--use_segmenter", "0",
-            "--use_gui", "1",
-            "--debug_level", "2",
-        ]
-        
-        print("Running BSDF with command:")
-        print(" ".join(command))
-        
+    frames = 15
+    curr_frame = 1
+    input(f"Continue to get real time rgbd+gsam-mask on {frames} frames?")
+    while not rospy.is_shutdown() and curr_frame <= frames:
         try:
-            subprocess.run(command, check=True)
-            print("BSDF process completed successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error running BSDF: {e}")
-        
-        # Load images
-        img1 = cv2.imread(f"{realworld_rgb_dir}/000000.jpg")
-        img2 = cv2.imread(f"{realworld_rgb_dir}/000001.jpg")
+            img, depth, mask = listener.run_network()
 
-        # Load pose matrices
-        pose1 = np.loadtxt(f"{realworld_dir}/out/bundlesdf/ob_in_cam/000000.jpg.txt")
-        pose2 = np.loadtxt(f"{realworld_dir}/out/bundlesdf/ob_in_cam/000001.jpg.txt")
+            # File paths
+            rgb_path = os.path.join(realworld_rgb_dir, "{:06d}.jpg".format(curr_frame))
+            depth_path = os.path.join(realworld_depth_dir, "{:06d}.png".format(curr_frame))
+            mask_path = os.path.join(realworld_mask_dir, "{:06d}.png".format(curr_frame))
 
-        # Camera intrinsic matrix (example)
-        K = np.loadtxt(cam_k_file_source)
+            cv2.imwrite(depth_path, depth)
+            mask[mask > 0] = 255
+            cv2.imwrite(mask_path, mask)
+            
+            PILImg.fromarray(img).save(rgb_path)
+            # PILImg.fromarray(depth).save(depth_path, format='PNG')
 
-        # Step 1: Draw the reference pose (pose1) and relative pose (pose2) in the first image
-        relative_pose_1 = np.linalg.inv(pose1) @ pose2  # Pose2 relative to Pose1
-        img1_with_pose = draw_pose_axis(img1.copy(), pose1, K)  # Draw pose1
-        img1_with_pose = draw_pose_axis(img1_with_pose, relative_pose_1, K, color_scheme=[(255, 0, 255), (255, 255, 0), (0, 255, 255)])  # Draw pose2 relative to pose1
+            curr_frame += 1
+        except:
+            continue
 
-        # Step 2: Draw the reference pose (pose1) and relative pose (pose2) in the second image
-        img2_with_pose = draw_pose_axis(img2.copy(), pose1, K)  # Draw pose1 in the second image
-        img2_with_pose = draw_pose_axis(img2_with_pose, pose2, K, color_scheme=[(255, 0, 255), (255, 255, 0), (0, 255, 255)])  # Draw pose2 directly
+    input("Continue to run bundlesdf?")
 
-        # Save the output images
-        cv2.imwrite("000000_with_pose.png", img1_with_pose)
-        cv2.imwrite("000001_with_pose.png", img2_with_pose)
+    input("Continue to plot bundlesdf output?")
+    
+    for tag in ["pre", "post"]:
+        print(f"Continuing for {tag} base optimization: collect mask?")
+        pre_post_mask_capture(listener)
 
-        print("Poses drawn and saved as '000000_with_pose.png' and '000001_with_pose.png'.")
+    # Load images
+    final_file = "{:06d}".format(frames)
+
+    img1 = cv2.imread(f"{realworld_rgb_dir}/000000.jpg")
+    img2 = cv2.imread(f"{realworld_rgb_dir}/{final_file}.jpg")
+
+    # Load pose matrices
+    pose1 = np.loadtxt(f"{realworld_dir}/bundlesdf/ob_in_cam/000000.txt")
+    pose2 = np.loadtxt(f"{realworld_dir}/bundlesdf/ob_in_cam/{final_file}.txt")
+
+    # Camera intrinsic matrix (example)
+    K = np.loadtxt(cam_k_file_source)
+
+    # Step 1: Draw the reference pose (pose1) and relative pose (pose2) in the first image
+    relative_pose_1 = np.linalg.inv(pose1) @ pose2  # Pose2 relative to Pose1
+    img1_with_pose = draw_pose_axis(img1.copy(), pose1, K)  # Draw pose1
+    img1_with_pose = draw_pose_axis(img1_with_pose, relative_pose_1, K, color_scheme=[(255, 0, 255), (255, 255, 0), (0, 255, 255)])  # Draw pose2 relative to pose1
+
+    # Step 2: Draw the reference pose (pose1) and relative pose (pose2) in the second image
+    img2_with_pose = draw_pose_axis(img2.copy(), pose1, K)  # Draw pose1 in the second image
+    img2_with_pose = draw_pose_axis(img2_with_pose, pose2, K)  # Draw pose2 directly
+
+    # Save the output images
+    cv2.imwrite("000000_with_pose.png", img1_with_pose)
+    cv2.imwrite(f"{final_file}_with_pose.png", img2_with_pose)
+
+    print(f"Poses drawn and saved as '000000_with_pose.png' and '{final_file}_with_pose.png'.")
