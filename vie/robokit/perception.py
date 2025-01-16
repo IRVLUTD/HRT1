@@ -21,10 +21,6 @@ from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-<<<<<<< HEAD
-=======
-from transformers import AutoImageProcessor, AutoModelForDepthEstimation
->>>>>>> 50e5da2c88bbd36df1549aae91950d0edad56a63
 from sam2.build_sam import build_sam2_video_predictor
 from matplotlib import (patches, pyplot as plt)
 import matplotlib.cm as cm
