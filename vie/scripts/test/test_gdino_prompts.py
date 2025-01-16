@@ -49,6 +49,7 @@ The script follows these steps:
 
 
 import os
+import re
 import numpy as np
 from absl import app, flags, logging
 from PIL import Image as PILImg
@@ -81,6 +82,9 @@ def main(argv):
         # Dummy mask for annotate func later on (we are using only GDINO and not SAM)
         dummy_masks = np.array([])
 
+        # Sort the files numerically
+        img_files = sorted(img_files, key=lambda x: int(re.search(r'\d+', x).group()))
+
         if flags.FLAGS.infer_first_only:
             img_files = [img_files[0]]
 
@@ -108,7 +112,6 @@ def main(argv):
     except Exception as e:
         # Handle unexpected errors
         print(f"An unexpected error occurred: {e}")
-
 
 
 def sanity_check(argv):
