@@ -3,12 +3,12 @@
   - `python save_human_demo_data.py` in `scripts/`
   - `python sub_compress_pub.py task 0.1` in `scripts/`
 
-### To start capture
+### To start capture [Without HoloLens 2]
 ```shell
 `rostopic pub /hololens/out/record_command std_msgs/Bool "data: true"`
 ```
 
-### To stop capture 
+### To stop capture [Without HoloLens 2]
 ```shell
 rostopic pub /hololens/out/record_command std_msgs/Bool "data: false"
 ```
