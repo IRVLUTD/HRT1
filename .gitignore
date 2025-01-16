@@ -1,8 +1,8 @@
 
-hamer-rfp.sh
-run-gdino-samv2.sh
-realworld.eraser/
-realworld/
+vie/hamer-rfp.sh
+vie/run-gdino-samv2.sh
+vie/realworld.eraser/
+vie/realworld/
 media/
 imgs/irvl-whiteboard-write-and-erase/
 build/
