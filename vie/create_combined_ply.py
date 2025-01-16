@@ -95,6 +95,7 @@ import sys
 root_dir = sys.argv[1]
 
 tasks_with_hand_alias = [
+    ["", 1],
     ("task_20_microwave-open_interval_0.05", 1),
     ("task_12_12s-use-spatula", 0),
     ("task_16_12s-wipe-table-with-towel", 0),
