@@ -1,11 +1,17 @@
-catkin_ws contains 
-ROS-TCP-endpoint in src
-python save_human_demo_data related py scripts
-python sub_compress_pub.py task 0.1
+### `catkin_ws` contains 
+  - `ROS-TCP-endpoint` in `src/`
+  - `python save_human_demo_data.py` in `scripts/`
+  - `python sub_compress_pub.py task 0.1` in `scripts/`
 
-rostopic pub /hololens/out/record_command std_msgs/Bool "data: true" # start capture
+### To start capture
+```shell
+`rostopic pub /hololens/out/record_command std_msgs/Bool "data: true"`
+```
 
-rostopic pub /hololens/out/record_command std_msgs/Bool "data: false" # stop capture
+### To stop capture 
+```shell
+rostopic pub /hololens/out/record_command std_msgs/Bool "data: false"
+```
 
-depth is multipled by 1000 and saved as png
-create a blog discussing why png and not jpg
+### Extra pointers
+  - `depth` is multipled by `1000` and saved as `png`. Check [blog](https://jishnujayakumar.github.io/blog/2024/saving-depth-as-jpg-vs-png/) discussing why `png` and not `jpg`.
