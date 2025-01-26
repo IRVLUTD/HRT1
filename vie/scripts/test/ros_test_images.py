@@ -18,8 +18,11 @@ import message_filters
 from PIL import Image as PILImg
 from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo
+from robokit.ros.fetch_listener import ImageListener
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+from .ros_utils import ros_qt_to_rt
+import tf2_ros
 
 lock = threading.Lock()
 
@@ -100,6 +103,158 @@ class ImageListener:
         slop_seconds = 0.1
         ts = message_filters.ApproximateTimeSynchronizer([rgb_sub, depth_sub], queue_size, slop_seconds)
         ts.registerCallback(self.callback_rgbd)
+
+
+
+    def odometry_callback(self, odometry):
+        self.robot_pose = ros_qt_to_rt(
+            [
+                odometry.pose.pose.orientation.x,
+                odometry.pose.pose.orientation.y,
+                odometry.pose.pose.orientation.z,
+                odometry.pose.pose.orientation.w,
+            ],
+            [
+                odometry.pose.pose.position.x,
+                odometry.pose.pose.position.y,
+                odometry.pose.pose.position.z,
+            ],
+        )
+        self.robot_velocity = np.array(
+            [
+                odometry.twist.twist.linear.x,
+                odometry.twist.twist.linear.y,
+                odometry.twist.twist.linear.z,
+                odometry.twist.twist.angular.x,
+                odometry.twist.twist.angular.y,
+                odometry.twist.twist.angular.z,
+            ]
+        )
+
+    def callback_rgbd(self, rgb, depth):
+
+        # get camera pose in base
+        try:
+            # print("callback")
+            trans, rot = self.tf_listener.lookupTransform(
+                self.base_frame, self.camera_frame, rospy.Time(0)
+            )
+            RT_camera = ros_qt_to_rt(rot, trans)
+            self.trans_l, self.rot_l = self.tf_listener.lookupTransform(
+                self.base_frame, "laser_link", rospy.Time(0)
+            )
+            RT_laser = ros_qt_to_rt(self.rot_l, self.trans_l)
+            
+            # For map, uncomment
+            # self.trans_l, self.rot_l = self.tf_listener.lookupTransform(
+            #     "map", self.base_frame, rospy.Time(0)
+            # )
+            # RT_base = ros_qt_to_rt(self.rot_l, self.trans_l)
+        except (
+            tf2_ros.LookupException,
+            tf2_ros.ConnectivityException,
+            tf2_ros.ExtrapolationException,
+        ) as e:
+            rospy.logwarn("Update failed... " + str(e))
+            RT_camera = None
+            RT_laser = None
+            # RT_base = None # For map, uncomment
+
+        if depth.encoding == "32FC1":
+            # depth_cv = self.cv_bridge.imgmsg_to_cv2(depth)
+            # depth_cv = np.array(depth_cv)
+            depth_cv = ros_numpy.numpify(depth)
+            depth_cv[np.isnan(depth_cv)] = 0
+            depth_cv = depth_cv * 1000
+            # depth_cv = np.array(depth_cv, dtype=np.uint16)
+            depth_cv = depth_cv.astype(np.uint16)
+            # TODO: 
+             # and save instead of max depth = 20
+            # depth_cv = 255 * (20 - depth_cv) / 20
+        elif depth.encoding == "16UC1":
+            # depth_cv = self.cv_bridge.imgmsg_to_cv2(depth).copy().astype(np.float32)
+            # depth_cv = depth_cv.copy().astype(np.float32)
+            # print("16uc1")
+            depth_cv = ros_numpy.numpify(depth).copy().astype(np.float32)
+            depth_cv /= 1000.0
+        else:
+            rospy.logerr_throttle(
+                1,
+                "Unsupported depth type. Expected 16UC1 or 32FC1, got {}".format(
+                    depth.encoding
+                ),
+            )
+            return
+
+        # im = self.cv_bridge.imgmsg_to_cv2(rgb, 'bgr8')
+        im = ros_numpy.numpify(rgb)[:,:,::-1] # bgr to rgb
+        with lock:
+            self.im = im.copy()
+            self.depth = depth_cv.copy()
+            self.rgb_frame_id = rgb.header.frame_id
+            self.rgb_frame_stamp = rgb.header.stamp
+            self.height = depth_cv.shape[0]
+            self.width = depth_cv.shape[1]
+            self.RT_camera = RT_camera
+            self.RT_laser = RT_laser
+            # self.RT_base = RT_base # For map, uncomment
+
+    def goal_callback(self, goal):
+        """
+        -----------goal-format-----------
+        target_pose:
+            position:
+                x: 1.3249285221099854
+                y: 0.3744138479232788
+                z: 0.0
+            orientation:
+                x: 0.0
+                y: 0.0
+                z: -0.0888939371846976
+                w: 0.9960410975114445
+
+        This call back becomes active only at the instant a goal is published.
+        so at the moment user gives a goal, this function is called. To maintain continuity,
+        Until a new goal occurs, self.goal represents currently active goal
+        """
+        self.current_goal = ros_qt_to_rt(
+            [
+                goal.goal.target_pose.pose.orientation.x,
+                goal.goal.target_pose.pose.orientation.y,
+                goal.goal.target_pose.pose.orientation.z,
+                goal.goal.target_pose.pose.orientation.w,
+            ],
+            [
+                goal.goal.target_pose.pose.position.x,
+                goal.goal.target_pose.pose.position.y,
+                goal.goal.target_pose.pose.position.z,
+            ],
+        )
+
+    def get_data_to_save(self):
+
+        with lock:
+            if self.im is None:
+                # todo:fix return objects later
+                return None, None, None, None, None, self.intrinsics
+            im_color = self.im.copy()
+            depth_image = self.depth.copy()
+            RT_camera = self.RT_camera.copy()
+            RT_laser = self.RT_laser.copy()
+            # RT_base = self.RT_base.copy() # For map, uncomment
+            RT_goal = self.current_goal.copy()
+            robot_velocity = self.robot_velocity.copy()
+            #map_data = self.map_img.copy()
+        return (
+            im_color,
+            depth_image,
+            RT_camera,
+            RT_laser,
+            # RT_base, # For map, uncomment
+            robot_velocity,
+            RT_goal,
+            #map_data,
+        )
 
 
     def callback_rgbd(self, rgb, depth):
@@ -208,7 +363,7 @@ class ImageListener:
         rgb_msg.header.frame_id = rgb_frame_id
         self.image_pub.publish(rgb_msg)
 
-        return self.im, self.depth, self.mask
+        return self.im, self.depth, self.mask, self.RT_camera, self.RT_goal, self.robot_velocity
     
 
 
@@ -296,11 +451,14 @@ if __name__ == '__main__':
     realworld_dir = "realworld"
     rgb_source_dir = os.path.join(task_dir, "rgb")
     depth_source_dir = os.path.join(task_dir, "depth")
+    pose_source_dir = os.path.join(task_dir, "pose")
+
     # text_prompt = os.listdir(os.path.join(task_dir, "out", "samv2"))[0].replace('_',' ')
     sam2_out_dir = os.path.join(task_dir, "out", "samv2")
     mask_source_dir = os.path.join(sam2_out_dir, os.listdir(sam2_out_dir)[-1], "obj_masks")
     realworld_rgb_dir = os.path.join(realworld_dir, "rgb")
     realworld_depth_dir = os.path.join(realworld_dir, "depth")
+    realworld_pose_dir = os.path.join(realworld_dir, "pose")
     realworld_mask_dir = os.path.join(realworld_dir, "masks")
     cam_k_file_source = os.path.join(root_dir, "cam_K.txt")
     cam_k_file_target = os.path.join(realworld_dir, "cam_K.txt")
@@ -308,6 +466,7 @@ if __name__ == '__main__':
     # Create the realworld directory structure
     os.makedirs(realworld_rgb_dir, exist_ok=True)
     os.makedirs(realworld_depth_dir, exist_ok=True)
+    os.makedirs(realworld_pose_dir, exist_ok=True)
     os.makedirs(realworld_mask_dir, exist_ok=True)
 
     # Select and copy the first frame (assumed to be 000000.jpg)
@@ -344,6 +503,18 @@ if __name__ == '__main__':
     else:
         print(f"Mask for the first frame {first_frame_mask_source} does not exist.")
 
+
+    # Select and copy the pose of the first frame
+    first_frame_pose = "000000.npz"  # Assuming mask files are PNG with matching names
+    first_frame_pose_source = os.path.join(pose_source_dir, first_frame_pose)
+    first_frame_pose_target = os.path.join(realworld_pose_dir, first_frame_pose)
+
+    if os.path.exists(first_frame_pose_source):
+        shutil.copy(first_frame_pose_source, first_frame_pose_target)
+        print(f"Copied {first_frame_pose_source} to {first_frame_pose_target}")
+    else:
+        print(f"Pose for the first frame {first_frame_pose_source} does not exist.")
+
     # Copy cam_K.txt to realworld
     if os.path.exists(cam_k_file_source):
         shutil.copy(cam_k_file_source, cam_k_file_target)
@@ -360,12 +531,13 @@ if __name__ == '__main__':
     input(f"Continue to get real time rgbd+gsam-mask on {frames} frames?")
     while not rospy.is_shutdown() and curr_frame <= frames:
         try:
-            img, depth, mask = listener.run_network()
+            img, depth, mask, RT_camera, RT_goal, robot_velocity = listener.run_network()
 
             # File paths
             rgb_path = os.path.join(realworld_rgb_dir, "{:06d}.jpg".format(curr_frame))
             depth_path = os.path.join(realworld_depth_dir, "{:06d}.png".format(curr_frame))
             mask_path = os.path.join(realworld_mask_dir, "{:06d}.png".format(curr_frame))
+            pose_path = os.path.join(realworld_pose_dir, "{:06d}.npz".format(curr_frame))
 
             cv2.imwrite(depth_path, depth)
             mask[mask > 0] = 255
@@ -373,6 +545,8 @@ if __name__ == '__main__':
             
             PILImg.fromarray(img).save(rgb_path)
             # PILImg.fromarray(depth).save(depth_path, format='PNG')
+
+            np.savez(pose_path, RT_camera=RT_camera, robot_velocity=robot_velocity, RT_goal=RT_goal)            
 
             curr_frame += 1
         except:
