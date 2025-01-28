@@ -18,12 +18,16 @@ import message_filters
 from PIL import Image as PILImg
 from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo
-from robokit.ros.fetch_listener import ImageListener
+
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
-from .ros_utils import ros_qt_to_rt
+# from robokit.ros.fetch_listener import ImageListener
+from robokit.ros.ros_utils import ros_qt_to_rt
+
+import tf
 import tf2_ros
 
+# from robokit.ros.listener import Listener
 lock = threading.Lock()
 
 def compute_xyz(depth_img, fx, fy, px, py, height, width):
@@ -41,6 +45,7 @@ class ImageListener:
 
         self.im = None
         self.depth = None
+        self.RT_camera = None
         self.rgb_frame_id = None
         self.rgb_frame_stamp = None
         self.counter = 0
@@ -48,7 +53,6 @@ class ImageListener:
         self.trigger_flag = None
     
         # initialize network
-        self.text_prompt =  ''          
         self.gdino = GroundingDINOObjectPredictor()
         self.SAM = SegmentAnythingPredictor()     
 
@@ -103,7 +107,7 @@ class ImageListener:
         slop_seconds = 0.1
         ts = message_filters.ApproximateTimeSynchronizer([rgb_sub, depth_sub], queue_size, slop_seconds)
         ts.registerCallback(self.callback_rgbd)
-
+        self.tf_listener = tf.TransformListener()
 
 
     def odometry_callback(self, odometry):
@@ -187,7 +191,7 @@ class ImageListener:
             return
 
         # im = self.cv_bridge.imgmsg_to_cv2(rgb, 'bgr8')
-        im = ros_numpy.numpify(rgb)[:,:,::-1] # bgr to rgb
+        im = ros_numpy.numpify(rgb)# bgr to rgb
         with lock:
             self.im = im.copy()
             self.depth = depth_cv.copy()
@@ -195,7 +199,7 @@ class ImageListener:
             self.rgb_frame_stamp = rgb.header.stamp
             self.height = depth_cv.shape[0]
             self.width = depth_cv.shape[1]
-            self.RT_camera = RT_camera
+            self.RT_camera = RT_camera.copy()
             self.RT_laser = RT_laser
             # self.RT_base = RT_base # For map, uncomment
 
@@ -240,47 +244,21 @@ class ImageListener:
             im_color = self.im.copy()
             depth_image = self.depth.copy()
             RT_camera = self.RT_camera.copy()
-            RT_laser = self.RT_laser.copy()
+            # RT_laser = self.RT_laser.copy()
             # RT_base = self.RT_base.copy() # For map, uncomment
-            RT_goal = self.current_goal.copy()
-            robot_velocity = self.robot_velocity.copy()
+            # RT_goal = self.current_goal.copy()
+            # robot_velocity = self.robot_velocity.copy()
             #map_data = self.map_img.copy()
         return (
             im_color,
             depth_image,
             RT_camera,
-            RT_laser,
+            # RT_laser,
             # RT_base, # For map, uncomment
-            robot_velocity,
-            RT_goal,
+            # robot_velocity,
+            # RT_goal,
             #map_data,
-        )
-
-
-    def callback_rgbd(self, rgb, depth):
-
-        if depth.encoding == '32FC1':
-            depth_cv = ros_numpy.numpify(depth)
-            depth_cv[np.isnan(depth_cv)] = 0
-            depth_cv = depth_cv * 1000
-            depth_cv = depth_cv.astype(np.uint16)
-
-        elif depth.encoding == '16UC1':
-            depth_cv = ros_numpy.numpify(depth).copy().astype(np.float32)
-            depth_cv /= 1000.0
-        else:
-            rospy.logerr_throttle(
-                1, 'Unsupported depth type. Expected 16UC1 or 32FC1, got {}'.format(
-                    depth.encoding))
-            return
-
-        im = ros_numpy.numpify(rgb)
-
-        with lock:
-            self.im = im.copy()
-            self.depth = depth_cv.copy()
-            self.rgb_frame_id = rgb.header.frame_id
-            self.rgb_frame_stamp = rgb.header.stamp
+        )   
 
 
     def run_network(self):
@@ -292,12 +270,15 @@ class ImageListener:
             depth_img = self.depth.copy()
             rgb_frame_id = self.rgb_frame_id
             rgb_frame_stamp = self.rgb_frame_stamp
+            RT_camera = self.RT_camera.copy()
             rospy.sleep(1)
         print('===========================================')
 
         # bgr image
-        im = im_color.astype(np.uint8)[:, :, (2, 1, 0)]
+        im = im_color.astype(np.uint8)#[:, :, (2, 1, 0)]
+        
         img_pil = PILImg.fromarray(im)
+
         # self.text_prompt = text_prompt
         bboxes, phrases, gdino_conf = self.gdino.predict(img_pil, self.text_prompt)
 
@@ -363,7 +344,7 @@ class ImageListener:
         rgb_msg.header.frame_id = rgb_frame_id
         self.image_pub.publish(rgb_msg)
 
-        return self.im, self.depth, self.mask, self.RT_camera, self.RT_goal, self.robot_velocity
+        return self.im, self.depth, self.mask, RT_camera
     
 
 
@@ -526,12 +507,13 @@ if __name__ == '__main__':
     print('Step-2: Get real time rgb, depth, masks from robot')
 
     # image listener
-    frames = 15
+    frames = 30
     curr_frame = 1
     input(f"Continue to get real time rgbd+gsam-mask on {frames} frames?")
     while not rospy.is_shutdown() and curr_frame <= frames:
         try:
-            img, depth, mask, RT_camera, RT_goal, robot_velocity = listener.run_network()
+            img, depth, mask, RT_camera = listener.run_network()
+
 
             # File paths
             rgb_path = os.path.join(realworld_rgb_dir, "{:06d}.jpg".format(curr_frame))
@@ -546,11 +528,11 @@ if __name__ == '__main__':
             PILImg.fromarray(img).save(rgb_path)
             # PILImg.fromarray(depth).save(depth_path, format='PNG')
 
-            np.savez(pose_path, RT_camera=RT_camera, robot_velocity=robot_velocity, RT_goal=RT_goal)            
+            np.savez(pose_path, RT_camera=RT_camera)            
 
             curr_frame += 1
-        except:
-            continue
+        except Exception as e:
+            raise Exception(f"except:{e}")
 
     input("Continue to run bundlesdf?")
 
