@@ -1,0 +1,26 @@
+<launch>
+    <!-- Data Collection Node -->
+    <node name="data_collection_node" pkg="my_ros_package" type="data_collection_node.py" output="screen">
+        <param name="camera" value="Fetch"/>
+        <param name="frames" value="15"/>
+        <rosparam param="args">--task_dir /_DATA/new-data-from-fetch-and-laptop/22tasks/task_15_19s-use-knife/ --text_prompt knife</rosparam>
+    </node>
+
+    <!-- BundleSDF Node -->
+    <node name="bundlesdf_node" pkg="my_ros_package" type="run_ros_node.py" output="screen">
+        <param name="video_dir" value="/realworld"/>
+        <param name="out_folder" value="/realworld/out/bundlesdf"/>
+        <param name="use_segmenter" value="0"/>
+        <param name="use_gui" value="0"/>
+        <param name="stride" value="1"/>
+        <param name="debug_level" value="0"/>
+        <param name="wait_for_service" value="/data_collection_ready"/>
+        <remap from="/src_rgb_with_pose" to="/bundlesdf/src_rgb_with_pose"/>
+        <remap from="/src_masked_rgb" to="/bundlesdf/src_masked_rgb"/>
+        <remap from="/dst_rgb_with_pose" to="/bundlesdf/dst_rgb_with_pose"/>
+        <remap from="/dst_masked_rgb" to="/bundlesdf/dst_masked_rgb"/>
+    </node>
+
+    <!-- RViz for visualization -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d /catkin_ws/src/my_ros_package/rviz_config.rviz" output="screen"/>
+</launch>
