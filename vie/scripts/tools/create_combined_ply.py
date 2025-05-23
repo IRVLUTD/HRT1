@@ -13,8 +13,8 @@ def merge_and_color_ply_files(ply_paths, output_path):
     merged_point_cloud = o3d.geometry.PointCloud()
 
     # Define colors (RGB values normalized between 0 and 1)
-    orange_color = np.array([1.0, 1.0, 0.0])  # Orange
-    red_color = np.array([1.0, 0.0, 0.0])     # Red
+    white_color = np.array([1.0, 1.0, 1.0])     # White
+    orange_color = np.array([1.0, 0.666, 0.0])  # #ffaa00
 
     for idx, ply_path in enumerate(ply_paths):
         if idx == 2:  # Third file (end-effector mesh)
@@ -22,7 +22,7 @@ def merge_and_color_ply_files(ply_paths, output_path):
             mesh = o3d.io.read_triangle_mesh(ply_path)
             
             # Apply red color to the entire mesh
-            mesh.paint_uniform_color(red_color)
+            mesh.paint_uniform_color(orange_color)
             
             # Convert the mesh to a point cloud for merging
             mesh_point_cloud = mesh.sample_points_uniformly(number_of_points=5000)  # Adjust point density as needed
@@ -38,7 +38,7 @@ def merge_and_color_ply_files(ply_paths, output_path):
             elif idx == 1:
                 # Color the second file as orange
                 point_cloud.colors = o3d.utility.Vector3dVector(
-                    np.tile(orange_color, (np.asarray(point_cloud.points).shape[0], 1))
+                    np.tile(white_color, (np.asarray(point_cloud.points).shape[0], 1))
                 )
             
             # Merge the current point cloud into the main one
@@ -96,28 +96,28 @@ root_dir = sys.argv[1]
 
 tasks_with_hand_alias = [
     ["", 1],
-    ("task_20_microwave-open_interval_0.05", 1),
-    ("task_12_12s-use-spatula", 0),
-    ("task_16_12s-wipe-table-with-towel", 0),
-    ("task_1_shelf-bottle_interval_0.05", 0),
-    ("task_11_17s-use-basting-brush", 0),
-    ("task_18_10s-move-chair", 0),
-    ("task_14_15s-pouring", 1),
-    ("task_10_15s-use-sponge-scrub", 1),
-    ("task_3_14s-close-jar-with-lid", 0),
-    ("task_22_water_fill_from_water_cooler", 0),
-    ("task_21_whiteboard-eraser_interval_0.05", 0),
-    ("task_13_13s-sprinkle-salt", 1),
-    ("task_8_17s-use_hammer", 0),
-    ("task_6_8s-press-keyboard-key", 0),
-    ("task_5_15s-open-folder", 0),
-    ("task_9-use-stapler", 1),
-    ("task_4_17s-fold-towel", 0),
-    ("task_19_fetch-shelf-ycb-red-mug_interval_0.05", 1),
-    ("task_17_15s-squeeze-sponge-ball", 0),
-    ("task_15_19s-use-knife", 0),
-    ("task_7_14s-use-cleaning-brush", 0),
-    ("task_2_9s-toggle-light-switch", 0),
+    # ("task_20_microwave-open_interval_0.05", 1),
+    # ("task_12_12s-use-spatula", 0),
+    # ("task_16_12s-wipe-table-with-towel", 0),
+    # ("task_1_shelf-bottle_interval_0.05", 0),
+    # ("task_11_17s-use-basting-brush", 0),
+    # ("task_18_10s-move-chair", 0),
+    # ("task_14_15s-pouring", 1),
+    # ("task_10_15s-use-sponge-scrub", 1),
+    # ("task_3_14s-close-jar-with-lid", 0),
+    # ("task_22_water_fill_from_water_cooler", 0),
+    # ("task_21_whiteboard-eraser_interval_0.05", 0),
+    # ("task_13_13s-sprinkle-salt", 1),
+    # ("task_8_17s-use_hammer", 0),
+    # ("task_6_8s-press-keyboard-key", 0),
+    # ("task_5_15s-open-folder", 0),
+    # ("task_9-use-stapler", 1),
+    # ("task_4_17s-fold-towel", 0),
+    # ("task_19_fetch-shelf-ycb-red-mug_interval_0.05", 1),
+    # ("task_17_15s-squeeze-sponge-ball", 0),
+    # ("task_15_19s-use-knife", 0),
+    # ("task_7_14s-use-cleaning-brush", 0),
+    # ("task_2_9s-toggle-light-switch", 0),
 ]
 
 

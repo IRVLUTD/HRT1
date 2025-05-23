@@ -34,7 +34,9 @@ from sklearn.neighbors import KDTree
 os.system("python setup.py build develop --user")
 os.system("pip install packaging==21.3")
 warnings.filterwarnings("ignore")
+import os
 
+os.environ.pop("QT_QPA_PLATFORM_PLUGIN_PATH")
 
 class Logger(object):
     """

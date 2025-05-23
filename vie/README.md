@@ -80,7 +80,7 @@ ImportError: cannot import name 'Mapping' from 'collections'
 
 ### 4. Human Hand to Fetch Gripper Transfer
 
-This step can only be performed after getting the output from step-3 as it needs the humna hand mesh.
+This step can only be performed after getting the output from step-3 as it needs the human hand mesh.
 
 ```shell
 # cd & git submodule update
