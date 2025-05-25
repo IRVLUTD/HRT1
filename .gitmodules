@@ -9,3 +9,4 @@
 [submodule "dytto"]
 	path = dytto
 	url = https://github.com/IRVLUTD/trajectory-tracking-optimization
+	branch = ros1
