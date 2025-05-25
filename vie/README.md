@@ -109,6 +109,8 @@ cd BundleSDF/
 python run_custom.py --mode run_video --video_dir ../data/bsdf-demo/ --out_folder ../data/bsdf-demo/out/bundlesdf --use_segmenter 0 --use_gui 1 --debug_level 2
 ```
 
+python run_custom.py --mode run_video --video_dir ../realworld --out_folder ../realworld/out --use_segmenter 0 --use_gui 1
+
 If you encounter the following error:
 ```
 from ._ckdtree import cKDTree, cKDTreeNode

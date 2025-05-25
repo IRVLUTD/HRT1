@@ -3,3 +3,9 @@
 	path = vie/rfp-grasp-transfer
 	url = https://github.com/IRVLUTD/rfp-grasp-transfer.git
 
+[submodule "vie/BundleSDF"]
+	path = vie/BundleSDF
+	url = https://github.com/jishnujayakumar/BundleSDF
+[submodule "dytto"]
+	path = dytto
+	url = https://github.com/IRVLUTD/trajectory-tracking-optimization

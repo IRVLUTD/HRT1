@@ -21,7 +21,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from robokit.ros.fetch_listener import ImageListener
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
-from .ros_utils import ros_qt_to_rt
+from robokit.ros.ros_utils import ros_qt_to_rt
 import tf2_ros
 
 lock = threading.Lock()
@@ -136,6 +136,7 @@ class ImageListener:
         # get camera pose in base
         try:
             # print("callback")
+            import pdb; pdb.set_trace()
             trans, rot = self.tf_listener.lookupTransform(
                 self.base_frame, self.camera_frame, rospy.Time(0)
             )
@@ -528,10 +529,12 @@ if __name__ == '__main__':
     # image listener
     frames = 15
     curr_frame = 1
-    input(f"Continue to get real time rgbd+gsam-mask on {frames} frames?")
+    # input(f"Continue to get real time rgbd+gsam-mask on {frames} frames?")
+    import pdb; pdb.set_trace()
     while not rospy.is_shutdown() and curr_frame <= frames:
         try:
             img, depth, mask, RT_camera, RT_goal, robot_velocity = listener.run_network()
+
 
             # File paths
             rgb_path = os.path.join(realworld_rgb_dir, "{:06d}.jpg".format(curr_frame))

@@ -3,7 +3,7 @@ A codebase for XPENG 1-Shot Skill Learning, built on top of the [robokit](https:
 
 - [`dc/`](dc/) contains the HoloLens app for data capture
 - [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules
-
+- [`dytto/`](dytto/) contains the logic for trajectory tracking optimization
 
 ## Setup
 
@@ -17,3 +17,9 @@ conda activate 1-shot
 
 # Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
+```
+
+- To get the latest changes from the submodules
+```shell
+git submodule update --remote --merge
+```
