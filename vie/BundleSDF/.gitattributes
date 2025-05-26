@@ -1,5 +1,0 @@
-*.py linguist-detectable=true
-*.cpp linguist-detectable=false
-*.h linguist-detectable=false
-*.ipynb linguist-detectable=false
-*.cu linguist-detectable=false

@@ -109,6 +109,8 @@ cd BundleSDF/
 python run_custom.py --mode run_video --video_dir ../data/bsdf-demo/ --out_folder ../data/bsdf-demo/out/bundlesdf --use_segmenter 0 --use_gui 1 --debug_level 2
 ```
 
+python run_custom.py --mode run_video --video_dir ../realworld --out_folder ../realworld/out --use_segmenter 0 --use_gui 1
+
 If you encounter the following error:
 ```
 from ._ckdtree import cKDTree, cKDTreeNode
@@ -169,7 +171,5 @@ try: `pip install --upgrade scipy==1.10 yacs`
 ## 🙏 Acknowledgments
 
 This project utilizes the following resources:
-
-- [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
 ---
