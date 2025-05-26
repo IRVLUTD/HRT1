@@ -171,7 +171,5 @@ try: `pip install --upgrade scipy==1.10 yacs`
 ## 🙏 Acknowledgments
 
 This project utilizes the following resources:
-
-- [HPHB](https://github.com/IRVLUTD/HumanPoseHandBoxes)
 - [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
 ---

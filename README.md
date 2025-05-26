@@ -21,5 +21,5 @@ export CUDA_HOME=/usr/local/cuda
 
 - To get the latest changes from the submodules
 ```shell
-git submodule update --remote --merge
+git submodule update --remote --merge --recursive
 ```
