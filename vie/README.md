@@ -120,6 +120,10 @@ try: `pip install --upgrade scipy==1.10 yacs`
 
 - If the pose region is within the mask provided then, we can omit it and move on to the next frame. This is one heuristic for eliminating incorrect poses.
 
+## To run GSAM and BundleSDF together for realworld pose estimation
+```shell
+./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue trash" 15 5
+```
 
 ### After data processing, following would be the dir structure
 ```
