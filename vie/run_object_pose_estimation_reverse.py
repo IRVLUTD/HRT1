@@ -692,9 +692,11 @@ if __name__ == "__main__":
 
     # Loop over human demo frames
     rospy.loginfo(f"Collecting {args.src_frames} frames from source directories...")
-    
+
+    last = len(os.listdir(rgb_source_dir))-1
     for i in range(args.src_frames):
-        frame_str = f"{i:06d}"
+        # frame_str = f"{i:06d}"
+        frame_str = f"{last:06d}"
 
         files = [
             (rgb_source_dir, realworld_rgb_dir, f"{frame_str}.jpg", "RGB"),
@@ -720,12 +722,13 @@ if __name__ == "__main__":
             print(f"{cam_k_file_source} does not exist.")
 
     print("Step-2: Get real-time RGB, depth, masks from robot")
-    curr_frame = args.src_frames
+    curr_frame = last + args.src_frames
     print(f"Collecting real-time RGBD+SAM-mask for {args.realtime_frames} frames...")
     time.sleep(0.1)
     while (
-        not rospy.is_shutdown() and curr_frame <= args.src_frames + args.realtime_frames
+        not rospy.is_shutdown() and curr_frame <= last + args.src_frames + args.realtime_frames
     ):
+        print(curr_frame)
         try:
             img, depth, mask, RT_camera = listener.run_network()
             print(f"{len(np.unique(mask)) - 1} objects detected")
