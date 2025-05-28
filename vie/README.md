@@ -24,6 +24,7 @@ chmod +x ./setup_vie.sh
   - gdino
   - samv2
   - hamer
+  - rfp-grasp-transfer
 
 ---
 
@@ -63,7 +64,7 @@ To extract right(1) / left(0) hand bounding boxes and 3D meshes
 - <red style="color:red">Frames containing atleast one hand will be only saved in `out/hamer/model`</red>
 ```shell
 cd hamer
-python extract_hand_bboxes_and_meshes.py --input_dir "../imgs/test/000100/rgb"
+python extract_hand_bboxes_and_meshes.py --intrinsic_of umi_ft_fetch --opt_weight 100.0 --input_dir "../imgs/test/000100/rgb"
 
 # Output will be saved in:
 # ../imgs/test/000100/out/hamer/extra_plots - For visualization and debugging
@@ -122,7 +123,7 @@ try: `pip install --upgrade scipy==1.10 yacs`
 
 ## To run GSAM and BundleSDF together for realworld pose estimation
 ```shell
-./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue trash" 15 5
+./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue hammer" 15 5
 ```
 
 ### After data processing, following would be the dir structure
