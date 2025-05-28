@@ -39,6 +39,7 @@ class MaskService:
         ind = np.where(index)[0]
         phrases = [phrases[i] for i in ind]
 
+
         # Convert mask to sensor_msgs/Image
         mask_msg = ros_numpy.msgify(Image, mask.astype(np.uint8), 'mono8')
         mask_msg.header.stamp = stamp
