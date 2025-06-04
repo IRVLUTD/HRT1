@@ -282,7 +282,7 @@ class SegmentAnythingPredictor(ObjectPredictor):
             # Check if prompt_bboxes is provided
             if prompt_bboxes is not None:
                 # Convert prompt bounding boxes to torch tensor
-                input_boxes = torch.tensor(prompt_bboxes, device=self.predictor.device)
+                input_boxes = torch.tensor(prompt_bboxes, device=self.device)
                 transformed_boxes = self.predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
                 self.predictor.set_image(image)
                 masks, _, _ = self.predictor.predict_torch(
@@ -311,6 +311,7 @@ class SAM2VideoPredictor(ObjectPredictor):
         """
         Initializes the SAM2VideoPredictor class and attempts to load the model.
         """
+        super(SAM2VideoPredictor, self).__init__()
         self.logger = logging.getLogger(__name__)        
         self.predictor = self._load_predictor()
         self.text_prompt = text_prompt
@@ -490,81 +491,82 @@ class SAM2VideoPredictor(ObjectPredictor):
         - save_output: If True, saves the segmented frames (default is True).
         """
         try:
-            # Initialize inference state
-            inference_state = self.predictor.init_state(video_path=video_dir)
-            self.predictor.reset_state(inference_state)
-            
-            # Get all frames from the directory
-            frame_names = self.load_frames_from_directory(video_dir)
-            
-            # Segment first frame
-            frame_idx = 0
-            _, out_obj_ids, out_mask_logits = self.predictor.add_new_points_or_box(
-                inference_state=inference_state,
-                frame_idx=frame_idx,
-                obj_id=1,
-                box=bbox
-            )
-            
-            # Create output directory if save_output is True
-            if save_output:
-                out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
-                output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
-                masks_dir = os.path.join(output_dir, "obj_masks")
-                traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
-                os.makedirs(masks_dir, exist_ok=True)
-                os.makedirs(traj_overlayed_dir, exist_ok=True)
+            with torch.inference_mode(), torch.autocast(self.device):
+                # Initialize inference state
+                inference_state = self.predictor.init_state(video_path=video_dir)
+                self.predictor.reset_state(inference_state)
+                
+                # Get all frames from the directory
+                frame_names = self.load_frames_from_directory(video_dir)
+                
+                # Segment first frame
+                frame_idx = 0
+                _, out_obj_ids, out_mask_logits = self.predictor.add_new_points_or_box(
+                    inference_state=inference_state,
+                    frame_idx=frame_idx,
+                    obj_id=1,
+                    box=bbox
+                )
+                
+                # Create output directory if save_output is True
+                if save_output:
+                    out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
+                    output_dir = os.path.join(os.path.dirname(video_dir), f"../out/samv2{out_path_suffix}")
+                    masks_dir = os.path.join(output_dir, "obj_masks")
+                    traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
+                    os.makedirs(masks_dir, exist_ok=True)
+                    os.makedirs(traj_overlayed_dir, exist_ok=True)
 
-            # Initialize trajectory list
-            centroids = []
-            
-            # Propagate mask across video
-            video_segments = {}
-            for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
-                for i, out_obj_id in enumerate(out_obj_ids):
-                    video_segments[out_frame_idx] = {out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()}
-                    # logging.info("Visualize and optionally save the results")
-                    plt.close("all")
-            
-                    plt.figure(figsize=(6, 4))
-                    plt.title(f"Frame {out_frame_idx}")
-                    img_path = os.path.join(video_dir, frame_names[out_frame_idx])
-                    img = PILImg.open(img_path)
-                    plt.imshow(img)
-                    
-                    # Draw bounding box
-                    plt.gca().add_patch(plt.Rectangle(
-                        (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
-                        linewidth=2, edgecolor="cyan", facecolor="none"))
-                    
-                    out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
-                    
-                    # Show segmentation masks
-                    for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                        self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
+                # Initialize trajectory list
+                centroids = []
+                
+                # Propagate mask across video
+                video_segments = {}
+                for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
+                    for i, out_obj_id in enumerate(out_obj_ids):
+                        video_segments[out_frame_idx] = {out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()}
+                        # logging.info("Visualize and optionally save the results")
+                        plt.close("all")
+                
+                        plt.figure(figsize=(6, 4))
+                        plt.title(f"Frame {out_frame_idx}")
+                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                        img = PILImg.open(img_path)
+                        plt.imshow(img)
                         
-                        # assumption only one object exists
-                        self.save_binary_mask_with_pil(out_mask[0], os.path.join(masks_dir, out_file_name))
+                        # Draw bounding box
+                        plt.gca().add_patch(plt.Rectangle(
+                            (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
+                            linewidth=2, edgecolor="cyan", facecolor="none"))
+                        
+                        out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
+                        
+                        # Show segmentation masks
+                        for out_obj_id, out_mask in video_segments[out_frame_idx].items():
+                            self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
+                            
+                            # assumption only one object exists
+                            self.save_binary_mask_with_pil(out_mask[0], os.path.join(masks_dir, out_file_name))
 
-                        centroid =  self.calculate_centroid(out_mask)
-                        centroids.append(centroid)
+                            centroid =  self.calculate_centroid(out_mask)
+                            centroids.append(centroid)
 
-                        # Plot the tracklet with centroids
-                        num_centroids = len(centroids)
-                        colormap = cm.get_cmap("autumn")  # Choose a colormap
-                        
-                        for idx, (x, y) in enumerate(centroids):
-                            color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
-                            plt.plot(x, y, 'o', color=color, markersize=3)
-                        
-                        # Disable axis numbers and ticks
-                        plt.axis('off')
-                        
-                        # Save the trajectory overlayed image if save_output is True
-                        if save_output:
-                            traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
-                            plt.savefig(traj_result_path)
-                            plt.close()
+                            # Plot the tracklet with centroids
+                            num_centroids = len(centroids)
+                            colormap = cm.get_cmap("autumn")  # Choose a colormap
+                            
+                            for idx, (x, y) in enumerate(centroids):
+                                color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
+                                plt.plot(x, y, 'o', color=color, markersize=3)
+                            
+                            # Disable axis numbers and ticks
+                            plt.axis('off')
+                            
+                            # Save the trajectory overlayed image if save_output is True
+                            if save_output:
+                                traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
+                                plt.savefig(traj_result_path)
+                                plt.close()
             
         except Exception as e:
             logging.error(f"Error during mask propagation: {e}")

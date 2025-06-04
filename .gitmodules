@@ -1,12 +1,19 @@
+[submodule "vie/rfp-grasp-transfer/mano_pybullet"]
+    path = vie/rfp-grasp-transfer/mano_pybullet
+    url = https://github.com/ikalevatykh/mano_pybullet.git
+    branch = main
 
 [submodule "vie/rfp-grasp-transfer"]
-	path = vie/rfp-grasp-transfer
-	url = https://github.com/IRVLUTD/rfp-grasp-transfer.git
+    path = vie/rfp-grasp-transfer
+    url = https://github.com/IRVLUTD/rfp-grasp-transfer.git
+    branch = main
 
 [submodule "vie/BundleSDF"]
-	path = vie/BundleSDF
-	url = https://github.com/jishnujayakumar/BundleSDF
+    path = vie/BundleSDF
+    url = https://github.com/jishnujayakumar/BundleSDF
+    branch = master
+
 [submodule "dytto"]
-	path = dytto
-	url = https://github.com/IRVLUTD/trajectory-tracking-optimization
-	branch = ros1
+    path = dytto
+    url = https://github.com/IRVLUTD/trajectory-tracking-optimization
+    branch = ros1
