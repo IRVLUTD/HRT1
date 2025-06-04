@@ -129,6 +129,34 @@ def main():
     print("\n{:<10} | {:<20} | {:>15}".format("Object ID", "Text Prompt", "Objects Detected"))
     print("-" * 10 + "|" + "-" * 21 + "|" + "-" * 16)
     
+    obj_prompt_mapper_rollout = obj_prompt_mapper.copy()
+    im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser = listener.get_latest_listener_data()
+
+    for objx, prompt in obj_prompt_mapper_rollout.items():
+        while True:
+            # Generate the mask and annotated image using the current prompt
+            bboxes, phrases, gdino_conf = listener.get_gdino_preds(im_color, prettify_prompt(prompt))
+            
+            print(bboxes, phrases)
+
+            # Ask the user if the current prompt is correct
+            user_input = input(f"Current text prompt is '{prompt}'. Is this correct? (Y/N): ").strip().lower()
+            
+            # Validate user input
+            while user_input not in ['y', 'n']:
+                print("Invalid input. Please enter 'Y' for yes or 'N' for no.")
+                user_input = input(f"Current text prompt is '{prompt}'. Is this correct? (Y/N): ").strip().lower()
+            
+            if user_input == 'y':
+                # If the prompt is correct, save it and move on to the next object
+                obj_prompt_mapper_rollout[objx] = prompt
+                break
+            else:
+                # If the prompt is not correct, ask for a new prompt
+                prompt = input("Please enter your custom prompt: ").strip()
+                obj_prompt_mapper_rollout[objx] = prompt
+
+
     while (
         not rospy.is_shutdown() and curr_frame <= args.demo_frames + args.rollout_frames
     ):
@@ -136,8 +164,8 @@ def main():
             im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser = listener.get_latest_listener_data()
             if im_color is None:
                 continue
-            im_color = im_color[:, :, (2, 1, 0)]  # BGR to RGB
-            for objx, prompt in obj_prompt_mapper.items():
+            # im_color = im_color[:, :, (2, 1, 0)]  # BGR to RGB
+            for objx, prompt in obj_prompt_mapper_rollout.items():
                 bbox_annotated_img, mask, mask_time = listener.get_gsam_mask(im_color, prettify_prompt(prompt))
                 listener.publish_overlay(bbox_annotated_img, rgb_frame_stamp, rgb_frame_id)
                 listener.publish_mask(mask, rgb_frame_stamp, rgb_frame_id)
@@ -153,6 +181,7 @@ def main():
                 PILImg.fromarray(im_color).save(rgb_path)
                 np.savez(pose_path, RT_camera=RT_camera)
                 timing_results["mask_prediction"].setdefault(objx, []).append({"frame": curr_frame, "time": mask_time})
+                timing_results[f"{objx}_text_prompt"] = prompt
             print("-" * 11 + "*" + "-" * 22 + "*" + "-" * 16)
             curr_frame += 1
         except Exception as e:

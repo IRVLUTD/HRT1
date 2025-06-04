@@ -175,6 +175,12 @@ class ImageListener:
             RT_laser = self.RT_laser.copy() if self.RT_laser is not None else None
             return im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser
 
+    def get_gdino_preds(self, im_color, text_prompt):
+        im = im_color.astype(np.uint8)
+        img_pil = PILImg.fromarray(im)
+        bboxes, phrases, gdino_conf = self.gdino.predict(img_pil, text_prompt)
+        return bboxes, phrases, gdino_conf
+
     def get_gsam_mask(self, im_color, text_prompt):
         start_time = time.time()
         im = im_color.astype(np.uint8)
