@@ -20,7 +20,9 @@ try:
     from segmentation_utils import Segmenter
 except ModuleNotFoundError as e:
     print(f"Error importing BundleSDF modules: {e}")
-    print("Ensure 'my_cpp' module is built in BundleSDF/build/. Run 'cmake .. && make' in BundleSDF/build/")
+    print(
+        "Ensure 'my_cpp' module is built in BundleSDF/build/. Run 'cmake .. && make' in BundleSDF/build/"
+    )
     sys.exit(1)
 from utils import download_loftr_weights, remove_unecessary_files
 import yaml as pyyaml
@@ -37,13 +39,19 @@ class BundleSDFProcessor:
         self.stride = stride
         self.debug_level = debug_level
         self.K = K
-        self.bundle_sdf_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "BundleSDF")
+        self.bundle_sdf_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "BundleSDF"
+        )
 
     def configure_bundletrack(self):
         os.system(f"rm -rf {self.out_folder} && mkdir -p {self.out_folder}")
-        weights_dir = os.path.join(self.bundle_sdf_dir, "BundleTrack", "LoFTR", "weights")
+        weights_dir = os.path.join(
+            self.bundle_sdf_dir, "BundleTrack", "LoFTR", "weights"
+        )
         download_loftr_weights(weights_dir)
-        config_path = os.path.join(self.bundle_sdf_dir, "BundleTrack", "config_ho3d.yml")
+        config_path = os.path.join(
+            self.bundle_sdf_dir, "BundleTrack", "config_ho3d.yml"
+        )
         if not os.path.exists(config_path):
             raise FileNotFoundError(f"Missing {config_path}")
         with open(config_path, "r") as f:
@@ -88,7 +96,9 @@ class BundleSDFProcessor:
         cfg_nerf["down_scale_ratio"] = 1
         cfg_nerf["fs_sdf"] = 0.1
         cfg_nerf["far"] = cfg_bundletrack["depth_processing"]["zfar"]
-        cfg_nerf["datadir"] = f"{cfg_bundletrack['debug_dir']}/nerf_with_bundletrack_online"
+        cfg_nerf["datadir"] = (
+            f"{cfg_bundletrack['debug_dir']}/nerf_with_bundletrack_online"
+        )
         cfg_nerf["notes"] = ""
         cfg_nerf["expname"] = "nerf_with_bundletrack_online"
         cfg_nerf["save_dir"] = cfg_nerf["datadir"]
@@ -107,7 +117,9 @@ class BundleSDFProcessor:
                 else:
                     os.remove(item_path)
 
-    def process(self, pub_row0_rgb, pub_row0_masked_rgb, pub_row1_rgb, pub_row1_masked_rgb):
+    def process(
+        self, pub_row0_rgb, pub_row0_masked_rgb, pub_row1_rgb, pub_row1_masked_rgb
+    ):
         start_time = time.time()
         cfg_track_dir, cfg_bundletrack = self.configure_bundletrack()
         cfg_nerf_dir, cfg_nerf = self.configure_nerf(cfg_bundletrack)
@@ -149,56 +161,68 @@ class BundleSDFProcessor:
                     mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
             if cfg_bundletrack["erode_mask"] > 0:
                 kernel = np.ones(
-                    (cfg_bundletrack["erode_mask"], cfg_bundletrack["erode_mask"]), np.uint8
+                    (cfg_bundletrack["erode_mask"], cfg_bundletrack["erode_mask"]),
+                    np.uint8,
                 )
                 mask = cv2.erode(mask.astype(np.uint8), kernel)
             id_str = reader.id_strs[i]
             _filename, ob_in_cam, _frames = tracker.run(
-                color, depth, self.K, id_str, mask=mask, occ_mask=None, pose_in_model=ob_in_cam
+                color,
+                depth,
+                self.K,
+                id_str,
+                mask=mask,
+                occ_mask=None,
+                pose_in_model=ob_in_cam,
             )
-            print("\n=================================================================\n")
-            print(ob_in_cam)
-            print("\n=================================================================\n")
+            # print("\n=================================================================\n")
+            # print(ob_in_cam)
+            # print("\n=================================================================\n")
             if _frames is not None:
                 try:
                     if is_first_frame:
                         row0_rgb = np.array(_frames["row0"]["rgb"])[..., :3]
-                        row0_masked_rgb = np.array(_frames["row0"]["masked_rgb"])[..., :3]
+                        # row0_masked_rgb = np.array(_frames["row0"]["masked_rgb"])[..., :3]
                         first_frame_pose = ob_in_cam
                         is_first_frame = False
                     row1_rgb = np.array(_frames["row1"]["rgb"])[..., :3]
-                    row1_masked_rgb = np.array(_frames["row1"]["masked_rgb"])[..., :3]
+                    # row1_masked_rgb = np.array(_frames["row1"]["masked_rgb"])[..., :3]
                     ros_row0_rgb = rnp.msgify(RosImage, row0_rgb, "rgb8")
-                    ros_row0_masked_rgb = rnp.msgify(RosImage, row0_masked_rgb, "rgb8")
+                    # ros_row0_masked_rgb = rnp.msgify(RosImage, row0_masked_rgb, "rgb8")
                     ros_row1_rgb = rnp.msgify(RosImage, row1_rgb, "rgb8")
-                    ros_row1_masked_rgb = rnp.msgify(RosImage, row1_masked_rgb, "rgb8")
+                    # ros_row1_masked_rgb = rnp.msgify(RosImage, row1_masked_rgb, "rgb8")
                     stamp = rospy.Time.now()
                     ros_row0_rgb.header.stamp = stamp
                     ros_row0_rgb.header.frame_id = "camera_frame"
-                    ros_row0_masked_rgb.header.stamp = stamp
-                    ros_row0_masked_rgb.header.frame_id = "camera_frame"
+                    # ros_row0_masked_rgb.header.stamp = stamp
+                    # ros_row0_masked_rgb.header.frame_id = "camera_frame"
                     ros_row1_rgb.header.stamp = stamp
                     ros_row1_rgb.header.frame_id = "camera_frame"
-                    ros_row1_masked_rgb.header.stamp = stamp
-                    ros_row1_masked_rgb.header.frame_id = "camera_frame"
+                    # ros_row1_masked_rgb.header.stamp = stamp
+                    # ros_row1_masked_rgb.header.frame_id = "camera_frame"
                     pub_row0_rgb.publish(ros_row0_rgb)
-                    pub_row0_masked_rgb.publish(ros_row0_masked_rgb)
+                    # pub_row0_masked_rgb.publish(ros_row0_masked_rgb)
                     pub_row1_rgb.publish(ros_row1_rgb)
-                    pub_row1_masked_rgb.publish(ros_row1_masked_rgb)
+                    # pub_row1_masked_rgb.publish(ros_row1_masked_rgb)
                     rospy.loginfo(f"Published images for frame {id_str}")
                 except Exception as e:
                     rospy.logerr(f"Error publishing images: {e}")
-            _filename = _filename.split('.')[0]
+            _filename = _filename.split(".")[0]
             posetxt_filename = f"{ob_in_cam_dir}/{_filename}.txt"
             np.savetxt(posetxt_filename, ob_in_cam)
-            PILImg.fromarray(row1_rgb).save(os.path.join(pose_overlayed_rgb_dir, f"{_filename}.png"))
-        pub = rospy.Publisher("/bundleSDF/poses", Float64MultiArray, queue_size=10)
-        msg = Float64MultiArray()
-        msg.data = np.concatenate((first_frame_pose.flatten(), ob_in_cam.flatten())).tolist()
-        for _ in range(5):
-            rospy.loginfo("Publishing...")
-            pub.publish(msg)
-            rospy.sleep(0.1)
+            PILImg.fromarray(row1_rgb).save(
+                os.path.join(pose_overlayed_rgb_dir, f"{_filename}.png")
+            )
+
+        # cue (jishnu): uncomment to publish the first frame pose and ob_in_cam
+        # pub = rospy.Publisher("/bundleSDF/poses", Float64MultiArray, queue_size=10)
+        # msg = Float64MultiArray()
+        # msg.data = np.concatenate((first_frame_pose.flatten(), ob_in_cam.flatten())).tolist()
+        # for _ in range(5):
+        #     rospy.loginfo("Publishing...")
+        #     pub.publish(msg)
+        #     rospy.sleep(0.1)
+
         remove_unecessary_files(self.out_folder)
         tracker.on_finish()
         self.keep_relevant_files()

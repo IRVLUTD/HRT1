@@ -15,6 +15,7 @@ from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPred
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 from utils import compute_xyz
 
+
 class ImageListener:
     def __init__(self, camera="Fetch"):
         self.im = None
@@ -173,7 +174,14 @@ class ImageListener:
             rgb_frame_stamp = self.rgb_frame_stamp
             RT_camera = self.RT_camera.copy() if self.RT_camera is not None else None
             RT_laser = self.RT_laser.copy() if self.RT_laser is not None else None
-            return im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser
+            return (
+                im_color,
+                depth_img,
+                rgb_frame_id,
+                rgb_frame_stamp,
+                RT_camera,
+                RT_laser,
+            )
 
     def get_gdino_preds(self, im_color, text_prompt):
         im = im_color.astype(np.uint8)
@@ -193,15 +201,11 @@ class ImageListener:
             image_pil_bboxes, w, h, threshold=0.5
         )
         masks = masks[index]
-        mask = combine_masks(masks[:, 0, :, :]).cpu().numpy()
         gdino_conf = gdino_conf[index]
         ind = np.where(index)[0]
         phrases = [phrases[i] for i in ind]
-        bbox_annotated_img = np.array(annotate(
-            overlay_masks(img_pil, masks), image_pil_bboxes, gdino_conf, phrases
-        ))
         mask_time = time.time() - start_time
-        return bbox_annotated_img, mask, mask_time
+        return img_pil, masks, image_pil_bboxes, gdino_conf, phrases, mask_time
 
     def publish_overlay(self, im_label, rgb_frame_stamp, rgb_frame_id):
         rgb_msg = ros_numpy.msgify(RosImage, im_label, "rgb8")
