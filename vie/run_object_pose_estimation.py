@@ -1,8 +1,9 @@
-#!/usr/bin/env python
-# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
-#
-# Merged script combining ros_test_images.py and BundleSDF/run_custom.py
-# Runs ros_test_images.py first to collect data, then processes with BundleSDF
+#----------------------------------------------------------------------------------------------------
+# Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
+# Please check the licenses of the respective works utilized here before using this script.
+# 🖋️ Jishnu Jaykumar Padalunkal (2025).
+#----------------------------------------------------------------------------------------------------
+
 
 import os
 import cv2
@@ -251,7 +252,7 @@ class ImageListener:
             rospy.logerr_throttle(1, f"Unsupported depth type: {depth.encoding}")
             return
 
-        im = ros_numpy.numpify(rgb) #[:, :, ::-1]  # BGR to RGB
+        im = ros_numpy.numpify(rgb)  # [:, :, ::-1]  # BGR to RGB
         with lock:
             self.im = im.copy()
             self.depth = depth_cv.copy()
@@ -692,7 +693,7 @@ if __name__ == "__main__":
 
     # Loop over human demo frames
     rospy.loginfo(f"Collecting {args.src_frames} frames from source directories...")
-    
+
     for i in range(args.src_frames):
         frame_str = f"{i:06d}"
 
