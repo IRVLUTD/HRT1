@@ -3,7 +3,7 @@ A codebase for Mobile Manipulation via One-Shot Human-to-Robot Trajectory Transf
 
 - [`dc/`](dc/) contains the HoloLens app for data capture
 - [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules
-- [`dytto/`](dytto/) contains the logic for trajectory tracking optimization
+- `dytto/` contains the logic for trajectory tracking optimization
 
 ## Setup
 
