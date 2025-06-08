@@ -10,21 +10,22 @@ import sys
 import cv2
 import time
 import rospy
+import argparse
 import numpy as np
 from fetch_listener import ImageListener
 from std_msgs.msg import Bool
 
 
-class SaveData:
-    def __init__(self, task_name, time_interval):
-        rospy.init_node("img_listen")
-        self.listener = ImageListener("Fetch")
-        self.init_sleep = 5
+class DataSaver:
+    def __init__(self, slop_seconds):
+        rospy.init_node("data_saver_node", anonymous=True)
+        self.slop_seconds = slop_seconds
+        self.listener = ImageListener("Fetch", slop_seconds=self.slop_seconds)
+        self.init_sleep = 2.5  # Initial sleep time to allow the listener to start properly
+        self.time_delay = 0.1
         rospy.loginfo("Initializing... Sleeping for {} seconds".format(self.init_sleep))
         time.sleep(self.init_sleep)
 
-        self.task_name = task_name
-        self.time_delay = time_interval
         self.recording = False  # Flag to track recording state
         self.record_start_time = None  # To track the start time of the current recording
         self.data_count = 0  # Counter for saved files in the current session
@@ -66,9 +67,9 @@ class SaveData:
         self.depth_dir_name = os.path.join(self.main_dir_name, "depth")
         self.pose_dir_name = os.path.join(self.main_dir_name, "pose")
 
-        os.makedirs(self.color_dir_name)
-        os.makedirs(self.depth_dir_name)
-        os.makedirs(self.pose_dir_name)
+        os.makedirs(self.color_dir_name, exist_ok=True)
+        os.makedirs(self.depth_dir_name, exist_ok=True)
+        os.makedirs(self.pose_dir_name, exist_ok=True)
         rospy.loginfo("Created new task directory: {}".format(self.main_dir_name))
 
     def record_command_callback(self, msg):
@@ -110,12 +111,12 @@ class SaveData:
         while not rospy.is_shutdown():
             if self.recording:
                 try:
-                    rgb, depth, RT_camera, RT_laser, robot_velocity, RT_goal = self.listener.get_data_to_save()
+                    rgb, depth, RT_camera = self.listener.get_data_to_save()
 
                     # Save pose data
                     np.savez(
                         os.path.join(self.pose_dir_name, "{:06d}.npz".format(self.data_count)),
-                        RT_camera=RT_camera, robot_velocity=robot_velocity, RT_goal=RT_goal
+                        RT_camera=RT_camera
                     )
 
                     # Save RGB and depth images
@@ -134,21 +135,13 @@ class SaveData:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        rospy.logerr("Insufficient arguments. Run as python save_data.py <out-dirname> <fps (float)>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Fetch RGBD Listener with Hololens Stream")
+    parser.add_argument("--slop_seconds", type=float, default=0.3, help="Slop for ApproximateTimeSynchronizer")
+    args = parser.parse_args()
+    data_saver = DataSaver(slop_seconds=args.slop_seconds)
 
-    task_name = str(sys.argv[1])
     try:
-        fps = float(sys.argv[2])
-    except ValueError:
-        rospy.logerr("FPS argument must be a float.")
-        sys.exit(1)
-
-    saver = SaveData(task_name, fps)
-    try:
-        saver.save_data()
+        data_saver.save_data()
     except KeyboardInterrupt:
         rospy.loginfo("Keyboard interrupt detected. Exiting...")
         sys.exit(0)
-

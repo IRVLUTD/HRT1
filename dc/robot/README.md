@@ -1,16 +1,19 @@
 ### `catkin_ws` contains 
   - `ROS-TCP-endpoint` in `src/`
-  - `python save_human_demo_data.py` in `scripts/`
-  - `python sub_compress_pub.py task 0.1` in `scripts/`
+  - `python save_human_demo_data.py --slop_seconds 0.3` in `scripts/`
+  - Capture data will be saved in `scripts/data_captured`
+  - Any number of task demos can be recorded.
+    - No need to run the scripts many times.
+    - Run the script untill all the required tasks are recorded.
 
-### To start capture [Without HoloLens 2]
+### To test start capture [Without HoloLens 2]
 ```shell
-`rostopic pub /hololens/out/record_command std_msgs/Bool "data: true"`
+rostopic pub /hololens/out/record_command std_msgs/Bool true
 ```
 
-### To stop capture [Without HoloLens 2]
+### To test stop capture [Without HoloLens 2]
 ```shell
-rostopic pub /hololens/out/record_command std_msgs/Bool "data: false"
+rostopic pub /hololens/out/record_command std_msgs/Bool false
 ```
 
 ### Extra pointers
