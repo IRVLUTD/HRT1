@@ -181,7 +181,7 @@ cd $VIE_ROOT
 - `src-frames`: Number of frames to extract from the human demonstration.
 - `rollout-frames`: Number of frames to process during real-time rollout.
 
-## 👉 Object Pose Estimation with Multi-Frame Context:
+### 👉 Object Pose Estimation with Multi-Frame Context:
 - 📸 Uses multiple frames from both:
   - Source phase (human demonstration)
   - Rollout phase (real-time robot execution)
