@@ -13,7 +13,7 @@ ROOT_DIR=$PWD
 
 # Step 1: Install dependencies using conda and pip
 echo "Installing PyTorch and CUDA dependencies..."
-conda install pytorch torchvision torchaudio pytorch-cuda -c pytorch -c nvidia  # should install based on CUDA_HOME
+conda install pytorch torchvision torchaudio pytorch-cuda -c pytorch -c nvidia # should install based on CUDA_HOME
 
 echo "Installing Python packages from requirements.txt..."
 pip install -r requirements.txt
@@ -21,13 +21,13 @@ pip install -r requirements.txt
 # Step 2: Install robokit (for gdino, samv2) and hydra-core
 echo "Installing robokit and updating hydra-core..."
 python setup.py install
-pip install --upgrade --force-reinstall hydra-core  # for samv2
+pip install --upgrade --force-reinstall hydra-core # for samv2
 
 # Step 3: Clone and install hamer at a specific commit
 echo "Cloning and installing hamer repository..."
 git clone --recursive https://github.com/geopavlakos/hamer.git
 cd hamer
-git checkout df533a2d04b9e2ece7cf9d6cbc6982e140210517  # checkout the specific commit
+git checkout df533a2d04b9e2ece7cf9d6cbc6982e140210517 # checkout the specific commit
 pip install -e .[all]
 
 # Step 4: Download trained models

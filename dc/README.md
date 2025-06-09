@@ -36,20 +36,25 @@ cd $ROOT_DIR
 ### Steps:
 - 1️⃣ **Connect to Robot WiFi hotspot.** [📹 Video](../media/hololens/wifi-conn-setup-hololens.mp4)  
 - 2️⃣ **Download and install the app on HoloLens2:**  
-   - [⬇️ Download app.msix](https://utdallas.box.com/v/iTeachSkills-DataCapture-App).  
-   - Follow [installation guide 🎥](https://www.youtube.com/watch?v=7xFtCPSMTEk).  
+   - [⬇️ Download app.msix](https://utdallas.box.com/v/iTeachUOIS-App).  
+   - Follow [sample installation guide 🎥](https://www.youtube.com/watch?v=7xFtCPSMTEk).  
    - *Note:* The app source code is available [here](https://utdallas.box.com/v/iTeachSkills-DataCapture-Code).  
-- 3️⃣ (🔜 TODO) A demo video showing user interaction with the app for data collection. (*Hosted on Box due to large size*).  
+- 3️⃣ A [sample demo video](https://utdallas.box.com/v/iTeach-Data-Capture-App-Demo) showing user interaction with the app for data collection.
+
+---
+
+🎉 **You're ready to capture data!**
 
 ---
 
 ## 📂 Data Directory Structure After Capture
-
+The data will stored in `dc/robot/catkin_ws/scripts/data_captured/`
 After data capture, the directory structure will look like this:
 
 ```
 ├── data_captured
-    ├── <task-name>-1/
+    ├── <task-name>_1/
+        ├── cam_K.txt
         ├── rgb/
             ├── 000000.jpg
             ├── 000001.jpg
@@ -62,10 +67,6 @@ After data capture, the directory structure will look like this:
             ├── 000000.npz
             ├── 000001.npz
             └── ...
-    ├── <task-name>-2/
-    ├── <task-name>-.../
+    ├── <task-name>_2/
+    ├── <task-name>_.../
 ```
-
----
-
-🎉 **You're ready to capture data!**
