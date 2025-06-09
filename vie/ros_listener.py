@@ -1,8 +1,8 @@
-#----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
 # Please check the licenses of the respective works utilized here before using this script.
 # 🖋️ Jishnu Jaykumar Padalunkal (2025).
-#----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 
 import os
 import cv2
@@ -92,7 +92,7 @@ class FetchImageListener:
         print("\n=================================================================\n")
 
         queue_size = 1
-        slop_seconds = 0.3 # to sync rgb and depth images
+        slop_seconds = 0.3  # to sync rgb and depth images
         ts = message_filters.ApproximateTimeSynchronizer(
             [rgb_sub, depth_sub], queue_size, slop_seconds
         )

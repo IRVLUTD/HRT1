@@ -1,11 +1,11 @@
-#----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
 # Please check the licenses of the respective works utilized here before using this script.
 # 🖋️ Jishnu Jaykumar Padalunkal (2024).
-#----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 
 """
-This script performs object tracking on video frames using Grounding DINO for initial detection 
+This script performs object tracking on video frames using Grounding DINO for initial detection
 and SAM2 for tracking each detected bounding box across frames.
 
 The script follows these steps:
@@ -37,9 +37,9 @@ The script follows these steps:
    - Log messages indicate the start and completion of tracking for each bounding box.
 
 **Usage**:
-   - Run this script from the command line, passing the required `input_dir` and `text_prompt` flags, 
+   - Run this script from the command line, passing the required `input_dir` and `text_prompt` flags,
      and an optional `save_interval` (default is 1):
-   
+
      `python test_gdino_samv2.py --input_dir=<path_to_frames> --text_prompt="object description" --save_interval=2`
 """
 
@@ -52,9 +52,10 @@ from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
 
 # Define absl flags for CLI arguments
 FLAGS = flags.FLAGS
-flags.DEFINE_string('input_dir', None, 'Directory path to input video frames')
-flags.DEFINE_string('text_prompt', None, 'Text prompt for initial object detection')
-flags.DEFINE_integer('save_interval', 1, 'Interval for saving tracked frames')
+flags.DEFINE_string("input_dir", None, "Directory path to input video frames")
+flags.DEFINE_string("text_prompt", None, "Text prompt for initial object detection")
+flags.DEFINE_integer("save_interval", 1, "Interval for saving tracked frames")
+
 
 def main(argv):
     # Get input values from flags
@@ -78,23 +79,31 @@ def main(argv):
         first_frame_path = os.path.join(video_dir, sorted(os.listdir(video_dir))[0])
         first_frame = PILImg.open(first_frame_path).convert("RGB")
 
-        logging.info("GDINO: Predict initial bounding boxes, phrases, and confidence scores")
+        logging.info(
+            "GDINO: Predict initial bounding boxes, phrases, and confidence scores"
+        )
         initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
 
         # Track each bounding box across frames
         if len(initial_bboxes) > 0:
-            logging.info(f"Detected {len(initial_bboxes)} bounding boxes in the first frame")
+            logging.info(
+                f"Detected {len(initial_bboxes)} bounding boxes in the first frame"
+            )
 
             # Process each bounding box
             for i, bbox in enumerate(initial_bboxes):
                 # Convert bbox to [x_min, y_min, x_max, y_max] format
-                x_min, y_min, x_max, y_max = gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size)
+                x_min, y_min, x_max, y_max = gdino.bbox_to_scaled_xyxy(
+                    bbox, *first_frame.size
+                )
                 bbox_array = np.array([x_min, y_min, x_max, y_max])
 
                 logging.info(f"SAM2: Track bounding box {i+1} across all frames")
                 # Track and propagate the bounding box across frames with the specified save interval
-                frame_names, video_segments = sam2.propagate_masks_and_save(video_dir, bbox_array, save_interval)
-            
+                frame_names, video_segments = sam2.propagate_masks_and_save(
+                    video_dir, bbox_array, save_interval
+                )
+
             logging.info("Tracking complete for all bounding boxes")
         else:
             logging.error("No bounding boxes detected in the first frame")
@@ -107,19 +116,24 @@ def main(argv):
 def sanity_check(argv):
     input_dir = flags.FLAGS.input_dir
     text_prompt = flags.FLAGS.text_prompt
-    
+
     # Check if the input directory exists and is a valid directory
     if not os.path.isdir(input_dir):
-        raise Exception(f"Error: The directory '{input_dir}' does not exist or is not a valid directory.")
-        
+        raise Exception(
+            f"Error: The directory '{input_dir}' does not exist or is not a valid directory."
+        )
 
     # List all files in the directory and filter for image files (jpg, jpeg, png)
-    image_files = [f for f in os.listdir(input_dir)
-                   if os.path.isfile(os.path.join(input_dir, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    image_files = [
+        f
+        for f in os.listdir(input_dir)
+        if os.path.isfile(os.path.join(input_dir, f))
+        and f.lower().endswith((".jpg", ".jpeg", ".png"))
+    ]
 
     if not image_files:
         raise Exception(f"No image files found in the directory '{input_dir}'.")
-    
+
     # Ensure text_prompt is provided
     if not text_prompt:
         raise Exception("Error: 'text_prompt' is required but not provided.")
@@ -129,8 +143,8 @@ def sanity_check(argv):
 
 if __name__ == "__main__":
     # Mark flags as required
-    flags.mark_flag_as_required('input_dir')
-    flags.mark_flag_as_required('text_prompt')
-    
+    flags.mark_flag_as_required("input_dir")
+    flags.mark_flag_as_required("text_prompt")
+
     # Run the main function
     app.run(main)
