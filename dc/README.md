@@ -38,7 +38,7 @@ cd $ROOT_DIR
 - 2️⃣ **Download and install the app on HoloLens2:**  
    - [⬇️ Download app.msix](https://utdallas.box.com/v/iTeachUOIS-App).  
    - Follow [sample installation guide 🎥](https://www.youtube.com/watch?v=7xFtCPSMTEk).  
-   - *Note:* The app source code is available [here](https://utdallas.box.com/v/iTeachSkills-DataCapture-Code).  
+   - *Note:* The app source code is available [here](https://github.com/IRVLUTD/iTeachSkillsApp).  
 - 3️⃣ A [sample demo video](https://utdallas.box.com/v/iTeach-Data-Capture-App-Demo) showing user interaction with the app for data collection.
 
 ---
