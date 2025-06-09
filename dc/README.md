@@ -19,7 +19,7 @@ source devel/setup.bash
 cd $ROOT_DIR
 ```
 
-![⚙️ Robot Setup](../media/robot/hotspot-and-terminal-cmds.png)
+![⚙️ Robot Setup](../media/robot/hotspot-and-terminal-cmds.webp)
 
 ### Steps:
 - 1️⃣ **Activate robot WiFi hotspot** from network settings. 📶  

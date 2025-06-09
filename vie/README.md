@@ -40,15 +40,17 @@ export TASK_DATA_ROOT=/path/to/data/captured/task_x
 📌 Step Dependencies Overview:
 - 🔁 Step 2 ➡️ Step 3:
     - Object prompt selection (GDINO) is required before generating masks.
-- 🔁 Step 3 ➡️ Step 6:
+- 🔁 Step 3 ➡️ Step 7 & 8:
     - Object masks from Step 3 are used in BundleSDF for pose estimation.
 - 🔓 Step 4:
     - Hand mesh extraction (HaMeR) can be performed independently.
 - 🔁 Step 3 ➡️ Step 5:
     - Gripper transfer needs the hand mesh aligned with object masks.
-- 🚀 Step 7:
+- 🚀 Step 8:
     - Full real-world execution combining all outputs (masks, poses).
-
+- 🐳 Docker Dependency (Steps 7 & 8)
+  - These steps must be executed inside a Docker container.
+  - Check Step 6 to start and enter docker.
 
 <hr>
 
@@ -145,9 +147,16 @@ ImportError: cannot import name 'Mapping' from 'collections'
 
 <hr>
 
+### 6. BundleSDF Docker Setup 
+BundleSDF runs in docker. First setup docker container and enter
+```shell
+cd $VIE_ROOT/BundleSDF/
+./docker/start_docker.sh # start docker container
+./docker/enter_docker.sh # enter docker container
+```
 
-### 6. Object Pose Estimation Using BundleSDF
-Run object pose estimation on captured video frames using BundleSDF:
+### 7. Object Pose Estimation Using BundleSDF
+Run object pose estimation on captured video frames using BundleSDF (in docker):
 ```shell
 cd $VIE_ROOT/BundleSDF/
 python run_pose_only_bsdf.py --mode run_video --video_dir $TASK_DATA_ROOT
@@ -168,8 +177,8 @@ ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' 
 <hr>
 
 
-## 7. Run GSAM2 + BundleSDF for Real-World Object Pose Estimation
-Use the following command to perform real-time object pose estimation by combining source frames (human demo) with rollout frames (robot execution):
+## 8. Run GSAM2 + BundleSDF for Real-World Object Pose Estimation
+Use the following command to perform real-time object pose estimation (in docker) by combining source frames (human demo) with rollout frames (robot execution):
 ```shell
 cd $VIE_ROOT
 ./run_obj_pose_est.sh $TASK_DATA_ROOT <text-prompt> <src-frames> <rollout-frames>
