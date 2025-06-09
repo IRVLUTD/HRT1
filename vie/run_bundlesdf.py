@@ -20,8 +20,8 @@ import yaml as pyyaml
 from PIL import Image as PILImg
 from sensor_msgs.msg import Image as RosImage
 from ros_listener import FetchImageListener
-from bsdf.bundlesdf_processor import BundleSDFProcessor
-from bsdf.utils import (
+from my_bsdf.bundlesdf_processor import BundleSDFProcessor
+from my_bsdf.utils import (
     read_obj_prompts,
     prettify_prompt,
     create_symlink,
