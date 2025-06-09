@@ -19,13 +19,11 @@ chmod +x ./setup_vie.sh
 
 ## 📜 Requirements
 
-- All the vie modules are tested on **Python 3.10.15**
-  - robokit
-    - gdino
-    - samv2
+- Following modules are tested on **Python 3.10.15**
+  - robokit (gdino+samv2)
   - hamer
   - rfp-grasp-transfer
-
+- BundleSDF runs in docker with **Python 3.8**
 ---
 
 https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
@@ -130,6 +128,7 @@ try: `pip install --upgrade scipy==1.10 yacs`
 ```
 ├── data_captured
     ├── <task-name>-1/
+        ├── cam_K.txt
         ├── rgb/
             ├── 000000.jpg
             ├── 000001.jpg
@@ -149,6 +148,10 @@ try: `pip install --upgrade scipy==1.10 yacs`
                 ├── <text-prompt>
                 ├── obj_masks
                 └── masks_traj_overlayed
+            └── bundlesdf
+                ├── demonstration
+                    ├── ob_in_cam
+                    ├── 
             └── hamer
                 ├── extra_plots
                     ├── 000000.npz
