@@ -186,10 +186,7 @@ cd $VIE_ROOT
   - Source phase (human demonstration)
   - Rollout phase (real-time robot execution)
 - 🎯 Provides richer visual and temporal context for improved understanding
-- 🚀 Significantly outperforms single-frame methods in:
-  - Accuracy
-  - Stability
-  - Robustness
+- 🚀 Significantly outperforms single-frame methods in Accuracy, Stability, Robustness
 - ✅ Enables more reliable pose tracking across time during real-world execution
 
 <hr>
