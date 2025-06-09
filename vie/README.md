@@ -50,7 +50,7 @@ export TASK_DATA_PATH=/path/to/data/captured/task_x
     - Full real-world execution combining all outputs (masks, poses).
 
 
----
+<hr>
 
 ### 2. 🔍 Find object prompts using GDINO
 Use GDINO with a text prompt to identify the object of interest in the first frame:
@@ -67,6 +67,8 @@ python run_gdino_samv2.py \
 ```
 ✅ Once you've found a text prompt that successfully detects the object, use it in Step 3 to generate object masks across all frames.
 
+<hr>
+
 
 ### 3. 🤖 Generate object masks using GDINO + SAMv2
 To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
@@ -77,6 +79,8 @@ python run_gdino_samv2.py --input_dir $TASK_DATA_PATH/rgb --text_prompt <obj-tex
 # $TASK_DATA_PATH/out/samv2/<obj_text_prompt>/obj_masks - object mask
 # $TASK_DATA_PATH/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
+
+<hr>
 
 ### 4. ✋ Extracting Right/Left Hand BBoxes and 3D Meshes (HaMeR)
 ![vie-hand](../media/data_capture/vie-hand.png)
@@ -108,6 +112,8 @@ ImportError: cannot import name 'Mapping' from 'collections'
 ```
 ✅ Try this fix: `pip install --upgrade networkx`
 
+<hr>
+
 ### 5. Transfer Human Hand to Fetch Gripper
 
 This step requires the human hand mesh output from Step 4 (HaMeR). It maps the human hand configuration to the target robot gripper (e.g., Fetch gripper).
@@ -137,6 +143,8 @@ ImportError: cannot import name 'Mapping' from 'collections'
 ```
 ✅ Try this fix: `pip install --upgrade networkx`
 
+<hr>
+
 
 ### 6. Object Pose Estimation Using BundleSDF
 Run object pose estimation on captured video frames using BundleSDF:
@@ -156,6 +164,8 @@ ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' 
 💡 Heuristic Tip:
 - If the predicted pose lies entirely within the object mask, it can be considered valid.
 - If not, the frame can be skipped—this simple heuristic helps filter out incorrect poses efficiently.
+
+<hr>
 
 
 ## 7. Run GSAM2 + BundleSDF for Real-World Object Pose Estimation
