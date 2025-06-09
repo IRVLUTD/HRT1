@@ -23,52 +23,62 @@ chmod +x ./setup_vie.sh
   - robokit (gdino+samv2)
   - hamer
   - rfp-grasp-transfer
-- BundleSDF runs in docker with **Python 3.8**
+- BundleSDF runs in [docker](BundleSDF/docker) with **Python 3.8**
 ---
 
 https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
 
+## Data preprocessing
+
+### 1. Setup paths
+```shell
+export DATA_ROOT=/path/to/data/captured
+export VIE_ROOT=/path/to/vie
+```
+
 ## 🔧 Tools
 
-- Step-1 is needed for Step-2.
-- Step-3 can be performed independently.
-- Step-4 depends on the output of Step-3.
+- Step-2 is needed for Step-3.
+- Step-3 is needed for Step-6.
+- Step-4 can be performed independently.
+- Step-5 depends on the output of Step-3.
+- Step-7 is for realworld execution.
 
-### 1. 🤖 Testing GDINO Prompts
-To test GDINO with a text prompt:
+### 2. 🔍 Testing GDINO Prompts
+First detect the object of interest in the first frame using GDINO with a text prompt:
 ```shell
-cp scripts/test_gdino_prompts.py .
-python test_gdino_prompts.py --input_dir ./imgs/test/000100/rgb --text_prompt <obj-text-prompt> --infer_first_only
-# The output will be saved in: /imgs/test/000100/out/gdino/<obj_text_prompt>
+cd $VIE_ROOT
+python run_gdino_samv2.py --input_dir $DATA_ROOT/rgb --text_prompt <obj-text-prompt> --infer_first_only
+# The output will be saved in: $DATA_ROOT/out/gdino/<obj_text_prompt>
+# if text prompt contains space " " then it will be replaced by "_"
 ```
+Once you have a good text prompt that can detect object of interest, use it in step-3.
 
-Once you have a good text prompt that can detect object of interest, use it in step-2.
-
-### 2. 🔍 Testing GDINO + SAMv2
+### 3. 🤖 Generate object masks using GDINO + SAMv2
 To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
 ```shell
-cp scripts/test_gdino_samv2.py .
-python test_gdino_samv2.py --input_dir ./imgs/test/000100/rgb --text_prompt <obj-text-prompt> --save_interval=1
+cd $VIE_ROOT
+python run_gdino_samv2.py --input_dir $DATA_ROOT/rgb --text_prompt <obj-text-prompt> --save_interval=1
 # Output saved in:
-# ../imgs/test/000100/out/samv2/<obj_text_prompt>/obj_masks - object mask
-# ../imgs/test/000100/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
+# $DATA_ROOT/out/samv2/<obj_text_prompt>/obj_masks - object mask
+# $DATA_ROOT/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
 
-### 3. ✋ Extracting Right/Left Hand BBoxes and Meshes
+### 4. ✋ Extracting Right/Left Hand BBoxes and Meshes
 ![vie-hand](../media/data_capture/vie-hand.png)
 
 To extract right(1) / left(0) hand bounding boxes and 3D meshes
 - Assuming only one person in the scene
 - <red style="color:red">Frames containing atleast one hand will be only saved in `out/hamer/model`</red>
 ```shell
-cd hamer
-python extract_hand_bboxes_and_meshes.py --intrinsic_of umi_ft_fetch --opt_weight 100.0 --input_dir "../imgs/test/000100/rgb"
+cd $VIE_ROOT/hamer
+python extract_hand_bboxes_and_meshes.py --intrinsic_of umi_ft_fetch --opt_weight 100.0 --input_dir "$DATA_ROOT/rgb"
 
 # Output will be saved in:
-# ../imgs/test/000100/out/hamer/extra_plots - For visualization and debugging
-# ../imgs/test/000100/out/hamer/scene - RGB scene point cloud
-# ../imgs/test/000100/out/hamer/model - HAMER output, including mano params
-# ../imgs/test/000100/out/hamer/3dhand - 3D hand mesh aligned with scene point cloud
+# $DATA_ROOT/out/hamer/extra_plots - For visualization and debugging
+# $DATA_ROOT/out/hamer/scene - RGB scene point cloud
+# $DATA_ROOT/out/hamer/model - HAMER output, including mano params
+# $DATA_ROOT/out/hamer/3dhand - 3D hand mesh aligned with scene point cloud
 ```
 
 - If you find the below error, it is likely due to Python3.10
@@ -77,13 +87,14 @@ from collections import Mapping
 ImportError: cannot import name 'Mapping' from 'collections' 
 ```
 
-### 4. Human Hand to Fetch Gripper Transfer
+
+### 5. Transfer Human Hand to Fetch Gripper
 
 This step can only be performed after getting the output from step-3 as it needs the human hand mesh.
 
 ```shell
 # cd & git submodule update
-cd rfp-grasp-transfer
+cd $VIE_ROOT/rfp-grasp-transfer
 git submodule update --init --recursive
 
 # run transfer script
@@ -101,14 +112,11 @@ ImportError: cannot import name 'Mapping' from 'collections'
 try: `pip install --upgrade networkx`
 
 
-
-### BundleSDF
+### 6. Object pose estimation using BundleSDF
 ```shell
-cd BundleSDF/
-python run_custom.py --mode run_video --video_dir ../data/bsdf-demo/ --out_folder ../data/bsdf-demo/out/bundlesdf --use_segmenter 0 --use_gui 1 --debug_level 2
+cd $VIE_ROOT/BundleSDF/
+python run_pose_only_bsdf.py --mode run_video --video_dir $DATA_ROOT
 ```
-
-python run_custom.py --mode run_video --video_dir ../realworld --out_folder ../realworld/out --use_segmenter 0 --use_gui 1
 
 If you encounter the following error:
 ```
@@ -119,15 +127,16 @@ try: `pip install --upgrade scipy==1.10 yacs`
 
 - If the pose region is within the mask provided then, we can omit it and move on to the next frame. This is one heuristic for eliminating incorrect poses.
 
-## To run GSAM and BundleSDF together for realworld pose estimation
+## 7. To run GSAM and BundleSDF together for realworld pose estimation
 ```shell
+cd $VIE_ROOT
 ./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue hammer" 15 5
 ```
 
 ### After data processing, following would be the dir structure
 ```
 ├── data_captured
-    ├── <task-name>-1/
+    ├── task_1/
         ├── cam_K.txt
         ├── rgb/
             ├── 000000.jpg
@@ -150,8 +159,15 @@ try: `pip install --upgrade scipy==1.10 yacs`
                 └── masks_traj_overlayed
             └── bundlesdf
                 ├── demonstration
-                    ├── ob_in_cam
-                    ├── 
+                    ├── obj_<1/2>
+                        ├── ob_in_cam
+                        ├── pose_overlayed_rgb
+                        ├── obj_prompt_mapper.json
+                ├── rollout
+                    ├── obj_<1/2>
+                        ├── ob_in_cam
+                        ├── pose_overlayed_rgb
+                        ├── obj_prompt_mapper.json
             └── hamer
                 ├── extra_plots
                     ├── 000000.npz
@@ -170,8 +186,18 @@ try: `pip install --upgrade scipy==1.10 yacs`
                     ├── 000001.ply
                     └── ...
         
-    ├── <task-name>-2/
-    └── <task-name>-.../
+    ├── task_2/
+    └── task_.../
+```
+
+`obj_prompt_mapper.json`
+key corresponds to the object and the values corresponds to the object prompt dirs in `$DATA_ROOT/out/sam2`
+This is necessary to link the obj masks from `$DATA_ROOT/out/sam2` to `$DATA_ROOT/masks` to predict obj pose estimation during realtime execuiion
+```json
+{
+  "obj_1": "bin",
+  "obj_2": "sonic"
+}
 ```
 
 ---
