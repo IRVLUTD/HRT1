@@ -244,11 +244,18 @@ data_captured/
   - Target: $TASK_DATA_PATH/masks/
 - This linkage is critical for enabling accurate object pose estimation during real-time execution.
 
-🔗 Example:
+🔗 Example for single object:
 ```json
 {
-  "obj_1": "bin",
-  "obj_2": "sonic"
+  "obj_1": "black_eraser"
+}
+```
+
+🔗 Example for dual objects:
+```json
+{
+  "obj_1": "black_eraser",
+  "obj_2": "whiteboard"
 }
 ```
 
