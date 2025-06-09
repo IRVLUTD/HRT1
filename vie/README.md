@@ -145,6 +145,34 @@ ImportError: cannot import name 'Mapping' from 'collections'
 ```
 ✅ Try this fix: `pip install --upgrade networkx`
 
+---
+
+### 🧩 To visualize scene, hamer hand pose & transferred pose
+This script visualizes the combined 3D point clouds from:
+- `hamer/scene/` — RGB scene point cloud
+- `hamer/3dhand/` — Predicted human hand mesh
+- `hamer/transfer_hand_mesh/` — Transferred gripper mesh
+
+```shell
+python ply_viewer_with_combined_ply.py \
+--data_dir $DATA_ROOT/out/hamer/ \
+--num_points 100000000 \
+--auto_mode \
+--fps 10
+```
+
+### 🔧 Arguments
+
+| Argument             | Type    | Default                    | Description                                                                 |
+|----------------------|---------|----------------------------|-----------------------------------------------------------------------------|
+| `--data_dir`         | `str`   | `./data/ply_sequence/`     | Base directory containing `scene`, `3dhand`, and `transfer_hand_mesh` dirs |
+| `--num_points`       | `int`   | `10000000000`              | Max number of points to load from each PLY file                             |
+| `--fps`              | `int`   | `5`                        | Frames per second in auto playback mode                                     |
+| `--skip_viz_frames`  | `int`   | `1`                        | Show every Nth frame in auto/manual mode                                    |
+| `--auto_mode`        | `flag`  | `False`                    | Auto-play the sequence in a loop                                            |
+| `--left_hand`        | `flag`  | `False`                    | Load left-hand meshes (`*_0.ply`); right-hand (`*_1.ply`) by default        |
+
+
 <hr>
 
 ### 6. BundleSDF Docker Setup 

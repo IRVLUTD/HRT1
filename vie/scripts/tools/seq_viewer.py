@@ -30,8 +30,8 @@ def get_screen_resolution():
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str, default='./data/ply_sequence/', help='Base directory containing hamer/scene, hamer/3dhand, and hamer/transfer_hand_mesh')
-    parser.add_argument('--num_points', type=int, default=0, help='Number of points to sample from each point cloud (0 to use all points)')
-    parser.add_argument('--fps', type=int, default=10, help='Frames per second for auto mode')
+    parser.add_argument('--num_points', type=int, default=10000000000, help='Number of points to sample from each point cloud')
+    parser.add_argument('--fps', type=int, default=5, help='Frames per second for auto mode')
     parser.add_argument('--skip_viz_frames', type=int, default=1, help='Show every Nth frame in auto mode or skip N frames per key press in manual mode (1 for all frames)')
     parser.add_argument('--auto_mode', action='store_true', default=False, help='Use auto mode with cyclic playback (default: False, i.e., manual mode)')
     parser.add_argument('--left_hand', action='store_true', default=False, help='Use left hand files with _0 suffix (default: False, i.e., right hand with _1 suffix)')
