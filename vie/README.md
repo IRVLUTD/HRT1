@@ -80,6 +80,7 @@ python run_gdino_samv2.py --input_dir $TASK_DATA_PATH/rgb --text_prompt <obj-tex
 
 ### 4. ✋ Extracting Right/Left Hand BBoxes and 3D Meshes (HaMeR)
 ![vie-hand](../media/data_capture/vie-hand.png)
+
 This step extracts right(1) / left(0) hand bounding boxes and 3D hand meshes using HaMeR.
 
 ✅ Assumptions:
@@ -106,8 +107,6 @@ from collections import Mapping
 ImportError: cannot import name 'Mapping' from 'collections'
 ```
 ✅ Fix: `pip install --upgrade networkx`
-
----
 
 ### 5. Transfer Human Hand to Fetch Gripper
 
