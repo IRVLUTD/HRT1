@@ -48,7 +48,10 @@ export TASK_DATA_PATH=/path/to/data/captured/task_x
     - Gripper transfer needs the hand mesh aligned with object masks.
 - 🚀 Step 7:
     - Full real-world execution combining all outputs (masks, poses).
-***
+
+
+<hr>
+
 ### 2. 🔍 Find object prompts using GDINO
 Use GDINO with a text prompt to identify the object of interest in the first frame:
 ```shell
