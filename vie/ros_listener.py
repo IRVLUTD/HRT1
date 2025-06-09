@@ -152,7 +152,7 @@ class FetchImageListener:
     def get_latest_listener_data(self):
         with threading.Lock():
             if self.im is None:
-                return None, None, None, None, None, None
+                return None, None, None, None, None
             im_color = self.im.copy()
             depth_img = self.depth.copy()
             rgb_frame_id = self.rgb_frame_id
