@@ -50,6 +50,7 @@ After data capture, the directory structure will look like this:
 ```
 ├── data_captured
     ├── <task-name>-1/
+        ├── cam_K.txt
         ├── rgb/
             ├── 000000.jpg
             ├── 000001.jpg

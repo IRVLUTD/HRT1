@@ -40,7 +40,7 @@ class DataSaver:
 
         # Create the first task directory (will be recreated when start command is received)
         self.main_dir_name = None
-        # self.create_directory()
+        # self.create_directory_and_files()
 
         # Subscriber to the record command topic
         rospy.Subscriber("/hololens/out/record_command", Bool, self.record_command_callback)
@@ -59,7 +59,7 @@ class DataSaver:
             return max(existing_tasks) + 1
         return 0
 
-    def create_directory(self):
+    def create_directory_and_files(self):
         """Create a unique directory for the task under the root directory."""
         task_dir_name = "task_{}".format(self.task_count)
         self.main_dir_name = os.path.join(self.root_dir, task_dir_name)
@@ -70,6 +70,8 @@ class DataSaver:
         os.makedirs(self.color_dir_name, exist_ok=True)
         os.makedirs(self.depth_dir_name, exist_ok=True)
         os.makedirs(self.pose_dir_name, exist_ok=True)
+
+        np.savetxt(os.path.join(self.main_dir_name, "cam_K.txt"), self.listener.intrinsics, fmt="%.6f")
         rospy.loginfo("Created new task directory: {}".format(self.main_dir_name))
 
     def record_command_callback(self, msg):
@@ -84,7 +86,7 @@ class DataSaver:
 
                 # Create a new task directory
                 self.task_count = self.get_latest_task_count()
-                self.create_directory()
+                self.create_directory_and_files()
 
             else:
                 rospy.logwarn("Recording is already in progress. Ignoring start command.")
