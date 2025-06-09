@@ -1,1 +1,0 @@
-SCENE: A wallmounted whiteboard with a red marker and an eraser <SEP> TASK: pick the eraser and erase the drawings on the whiteboard and place the eraser back to the rest postion.
