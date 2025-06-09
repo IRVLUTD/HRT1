@@ -2,11 +2,13 @@
     path = vie/rfp-grasp-transfer/mano_pybullet
     url = https://github.com/ikalevatykh/mano_pybullet.git
     branch = main
+	# commit = 960c257cf465f8966e770562b66150beaa359230
 
 [submodule "vie/rfp-grasp-transfer"]
     path = vie/rfp-grasp-transfer
     url = https://github.com/IRVLUTD/rfp-grasp-transfer.git
     branch = main
+	# commit = 1067fa1d04275a08ec80b7bacf87864866c9f2b3
 
 [submodule "vie/BundleSDF"]
     path = vie/BundleSDF
