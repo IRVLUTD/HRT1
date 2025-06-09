@@ -21,8 +21,8 @@ chmod +x ./setup_vie.sh
 
 - All the vie modules are tested on **Python 3.10.15**
   - robokit
-  - gdino
-  - samv2
+    - gdino
+    - samv2
   - hamer
   - rfp-grasp-transfer
 
@@ -176,5 +176,8 @@ try: `pip install --upgrade scipy==1.10 yacs`
 ## 🙏 Acknowledgments
 
 This project utilizes the following resources:
-- [GDINO + SamV2](https://github.com/IRVLUTD/robokit)
+- [GDINO + SamV2](https://github.com/jishnujayakumar/robokit)
+- [HaMeR](https://github.com/IRVLUTD/HaMeR)
+- [rfp-grasp-transfer](https://github.com/IRVLUTD/rfp-grasp-transfer)
+- [BundleSDF](https://github.com/jishnujayakumar/BundleSDF)
 ---
