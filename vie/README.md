@@ -95,10 +95,10 @@ python extract_hand_bboxes_and_meshes.py \
 ```
 
 📤 Output Directory Structure:
-- $TASK_DATA_PATH/out/hamer/extra_plots – Visualizations and debugging images
-- $TASK_DATA_PATH/out/hamer/scene – RGB scene point cloud
-- $TASK_DATA_PATH/out/hamer/model – HaMeR results including MANO parameters
-- $TASK_DATA_PATH/out/hamer/3dhand – Aligned 3D hand meshes
+- `$TASK_DATA_PATH/out/hamer/extra_plots` – Visualizations and debugging images
+- `$TASK_DATA_PATH/out/hamer/scene` – RGB scene point cloud
+- `$TASK_DATA_PATH/out/hamer/model` – HaMeR results including MANO parameters
+- `$TASK_DATA_PATH/out/hamer/3dhand` – Aligned 3D hand meshes
 
 🛠️ Known Issue (Python 3.10+)
 If you encounter:
@@ -126,8 +126,8 @@ python transfer_from_hamer.py \
 ```
 
 📤 Output Directory Structure:
-- $TASK_DATA_PATH/out/hamer/transfer_extra_plots – Visualizations and debugging plots
-- $TASK_DATA_PATH/out/hamer/transfer_hand_mesh – Transfered 3D fetch gripper meshes
+- `$TASK_DATA_PATH/out/hamer/transfer_extra_plots` – Visualizations and debugging plots
+- `$TASK_DATA_PATH/out/hamer/transfer_hand_mesh` – Transfered 3D fetch gripper meshes
 
 🛠️ Troubleshooting
 If you see this error:
