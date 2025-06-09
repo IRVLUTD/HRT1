@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
 ```shell
 export PROJECT_ROOT=/path/to/hrt1
 export VIE_ROOT=$PROJECT_ROOT/vie
-export TASK_DATA_PATH=/path/to/data/captured/task_x
+export TASK_DATA_ROOT=/path/to/data/captured/task_x
 ```
 
 ## 🔧 Tools
@@ -57,12 +57,12 @@ Use GDINO with a text prompt to identify the object of interest in the first fra
 ```shell
 cd $VIE_ROOT
 python run_gdino_samv2.py \
-    --input_dir $TASK_DATA_PATH/rgb \
+    --input_dir $TASK_DATA_ROOT/rgb \
     --text_prompt <obj-text-prompt> \
     --infer_first_only
 
 # Output will be saved at:
-# $TASK_DATA_PATH/out/gdino/<obj_text_prompt>
+# $TASK_DATA_ROOT/out/gdino/<obj_text_prompt>
 # Note: spaces in <obj-text-prompt> will be replaced with "_"
 ```
 ✅ Once you've found a text prompt that successfully detects the object, use it in Step 3 to generate object masks across all frames.
@@ -74,10 +74,10 @@ python run_gdino_samv2.py \
 To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
 ```shell
 cd $VIE_ROOT
-python run_gdino_samv2.py --input_dir $TASK_DATA_PATH/rgb --text_prompt <obj-text-prompt> --save_interval=1
+python run_gdino_samv2.py --input_dir $TASK_DATA_ROOT/rgb --text_prompt <obj-text-prompt> --save_interval=1
 # Output saved in:
-# $TASK_DATA_PATH/out/samv2/<obj_text_prompt>/obj_masks - object mask
-# $TASK_DATA_PATH/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
+# $TASK_DATA_ROOT/out/samv2/<obj_text_prompt>/obj_masks - object mask
+# $TASK_DATA_ROOT/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
 
 <hr>
@@ -95,14 +95,14 @@ cd $VIE_ROOT/hamer
 python extract_hand_bboxes_and_meshes.py \
 --intrinsic_of umi_ft_fetch \
 --opt_weight 100.0 \
---input_dir $TASK_DATA_PATH/rgb
+--input_dir $TASK_DATA_ROOT/rgb
 ```
 
 📤 Output Directory Structure:
-- `$TASK_DATA_PATH/out/hamer/extra_plots` – Visualizations and debugging images
-- `$TASK_DATA_PATH/out/hamer/scene` – RGB scene point cloud
-- `$TASK_DATA_PATH/out/hamer/model` – HaMeR results including MANO parameters
-- `$TASK_DATA_PATH/out/hamer/3dhand` – Aligned 3D hand meshes
+- `$TASK_DATA_ROOT/out/hamer/extra_plots` – Visualizations and debugging images
+- `$TASK_DATA_ROOT/out/hamer/scene` – RGB scene point cloud
+- `$TASK_DATA_ROOT/out/hamer/model` – HaMeR results including MANO parameters
+- `$TASK_DATA_ROOT/out/hamer/3dhand` – Aligned 3D hand meshes
 
 🛠️ Known Issue (Python 3.10+)
 If you encounter:
@@ -128,12 +128,12 @@ python transfer_from_hamer.py \
 --mano_model_dir ../hamer/_DATA/data/mano/mano_v1_2/models/ \
 --target_gripper fetch_gripper \
 --debug_plots \
---input_dir $TASK_DATA_PATH
+--input_dir $TASK_DATA_ROOT
 ```
 
 📤 Output Directory Structure:
-- `$TASK_DATA_PATH/out/hamer/transfer_extra_plots` – Visualizations and debugging plots
-- `$TASK_DATA_PATH/out/hamer/transfer_hand_mesh` – Transfered 3D fetch gripper meshes
+- `$TASK_DATA_ROOT/out/hamer/transfer_extra_plots` – Visualizations and debugging plots
+- `$TASK_DATA_ROOT/out/hamer/transfer_hand_mesh` – Transfered 3D fetch gripper meshes
 
 🛠️ Troubleshooting
 If you see this error:
@@ -150,7 +150,7 @@ ImportError: cannot import name 'Mapping' from 'collections'
 Run object pose estimation on captured video frames using BundleSDF:
 ```shell
 cd $VIE_ROOT/BundleSDF/
-python run_pose_only_bsdf.py --mode run_video --video_dir $TASK_DATA_PATH
+python run_pose_only_bsdf.py --mode run_video --video_dir $TASK_DATA_ROOT
 ```
 
 🛠️ Troubleshooting
@@ -172,7 +172,7 @@ ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' 
 Use the following command to perform real-time object pose estimation by combining source frames (human demo) with rollout frames (robot execution):
 ```shell
 cd $VIE_ROOT
-./run_obj_pose_est.sh $TASK_DATA_PATH <text-prompt> <src-frames> <rollout-frames>
+./run_obj_pose_est.sh $TASK_DATA_ROOT <text-prompt> <src-frames> <rollout-frames>
 # Example:
 # ./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue hammer" 15 5
 ```
@@ -247,8 +247,8 @@ data_captured/
 ### 🗂️ obj_prompt_mapper.json
 - Maps object identifiers (e.g., obj_1, obj_2) to their corresponding text prompts used during SAMv2 mask generation.
 - Ensures a consistent mapping between:
-  - Source: `$TASK_DATA_PATH/out/sam2/<text_prompt>/obj_masks`
-  - Target: `$TASK_DATA_PATH/masks/`
+  - Source: `$TASK_DATA_ROOT/out/sam2/<text_prompt>/obj_masks`
+  - Target: `$TASK_DATA_ROOT/masks/`
 - This linkage is critical for enabling accurate object pose estimation during real-time execution.
 
 🔗 Example for single object:
