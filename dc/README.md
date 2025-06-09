@@ -44,7 +44,7 @@ cd $ROOT_DIR
 ---
 
 ## 📂 Data Directory Structure After Capture
-
+The data will stored in `dc/robot/catkin_ws/scripts/data_captured/`
 After data capture, the directory structure will look like this:
 
 ```

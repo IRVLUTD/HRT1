@@ -18,9 +18,9 @@ chmod +x ./setup_vie.sh
 ## 📜 Requirements
 
 - Following modules are tested on **Python 3.10.15**
-  - robokit (gdino+samv2)
-  - hamer
-  - rfp-grasp-transfer
+  - `robokit` (gdino+samv2). Example conda [env.yml](./conda-envs/gsam2-py3.10.yml).
+  - `hamer` & `rfp-grasp-transfer`. Example conda [env.yml](./conda-envs/robokit-py3.10.yml).
+
 - BundleSDF runs in [docker](BundleSDF/docker) with **Python 3.8**
 
 https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
