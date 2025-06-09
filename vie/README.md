@@ -48,21 +48,23 @@ export TASK_DATA_PATH=/path/to/data/captured/task_x
     - Gripper transfer needs the hand mesh aligned with object masks.
 - 🚀 Step 7:
     - Full real-world execution combining all outputs (masks, poses).
----
+
 
 ### 2. 🔍 Testing GDINO Prompts
-First detect the object of interest in the first frame using GDINO with a text prompt:
+Use GDINO with a text prompt to identify the object of interest in the first frame:
 ```shell
 cd $VIE_ROOT
 python run_gdino_samv2.py \
---input_dir $TASK_DATA_PATH/rgb \
---text_prompt <obj-text-prompt> \
---infer_first_only
-# The output will be saved in: $TASK_DATA_PATH/out/gdino/<obj_text_prompt>
-# if text prompt contains space " " then it will be replaced by "_"
+    --input_dir $TASK_DATA_PATH/rgb \
+    --text_prompt <obj-text-prompt> \
+    --infer_first_only
+
+# Output will be saved at:
+# $TASK_DATA_PATH/out/gdino/<obj_text_prompt>
+# Note: spaces in <obj-text-prompt> will be replaced with "_"
 ```
-Once a good text prompt is identified for the object of interest, use it in step-3.
----
+✅ Once you've found a text prompt that successfully detects the object, use it in Step 3 to generate object masks across all frames.
+
 
 ### 3. 🤖 Generate object masks using GDINO + SAMv2
 To use GDINO and SAMv2 for object bounding box detection and tracking in video frames:
