@@ -1,5 +1,5 @@
 
-# 📁 Project Setup and Usage Guide
+# 📁 VIE Setup and Usage Guide
 
 ## 🛠️ Setup Instructions
 
