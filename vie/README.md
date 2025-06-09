@@ -26,7 +26,7 @@ chmod +x ./setup_vie.sh
 https://github.com/user-attachments/assets/015088f9-7031-44b9-b1b4-f4ea75043109
 
 
-## Data preprocessing
+## ⚙️ Data preprocessing
 
 ### 1. Setup paths
 ```shell
@@ -37,7 +37,7 @@ export TASK_DATA_PATH=/path/to/data/captured/task_x
 
 ## 🔧 Tools
 
-📌 Step Dependencies Overview
+📌 Step Dependencies Overview:
 - 🔁 Step 2 ➡️ Step 3:
     - Object prompt selection (GDINO) is required before generating masks.
 - 🔁 Step 3 ➡️ Step 6:
@@ -50,7 +50,7 @@ export TASK_DATA_PATH=/path/to/data/captured/task_x
     - Full real-world execution combining all outputs (masks, poses).
 
 
-### 2. 🔍 Testing GDINO Prompts
+### 2. 🔍 Find object prompts using GDINO
 Use GDINO with a text prompt to identify the object of interest in the first frame:
 ```shell
 cd $VIE_ROOT
@@ -240,8 +240,8 @@ data_captured/
 ### 🗂️ obj_prompt_mapper.json
 - Maps object identifiers (e.g., obj_1, obj_2) to their corresponding text prompts used during SAMv2 mask generation.
 - Ensures a consistent mapping between:
-  - Source: $TASK_DATA_PATH/out/sam2/<text_prompt>/obj_masks
-  - Target: $TASK_DATA_PATH/masks/
+  - Source: `$TASK_DATA_PATH/out/sam2/<text_prompt>/obj_masks`
+  - Target: `$TASK_DATA_PATH/masks/`
 - This linkage is critical for enabling accurate object pose estimation during real-time execution.
 
 🔗 Example for single object:
