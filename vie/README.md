@@ -192,6 +192,8 @@ cd $VIE_ROOT
   - Robustness
 - ✅ Enables more reliable pose tracking across time during real-world execution
 
+<hr>
+
 ## 🗂️ Output Directory Structure After Data Processing
 ```
 data_captured/
