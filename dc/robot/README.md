@@ -4,7 +4,7 @@
 - 💾 Captured data saved in `scripts/data_captured/`
 - 🔁 Supports recording **multiple task demos**:
   - ✅ No need to restart the script each time
-  - ▶️ Just **keep it running** until all required tasks are recorded
+  - ▶️ Just **keep it running** until all required tasks are captured
 
 ---
 
