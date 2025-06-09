@@ -1,6 +1,28 @@
 
 # 📁 VIE Setup and Usage Guide
 
+- [📁 VIE Setup and Usage Guide](#-vie-setup-and-usage-guide)
+  - [🛠️ Setup Instructions](#️-setup-instructions)
+    - [🧑‍💻 Run the Setup Script](#-run-the-setup-script)
+  - [📜 Requirements](#-requirements)
+  - [⚙️ Data preprocessing](#️-data-preprocessing)
+    - [1. Setup paths](#1-setup-paths)
+  - [🔧 Tools](#-tools)
+    - [2. 🔍 Find object prompts using GDINO](#2--find-object-prompts-using-gdino)
+    - [3. 🤖 Generate object masks using GDINO + SAMv2](#3--generate-object-masks-using-gdino--samv2)
+    - [4. ✋ Extracting Right/Left Hand BBoxes and 3D Meshes (HaMeR)](#4--extracting-rightleft-hand-bboxes-and-3d-meshes-hamer)
+    - [5. Transfer Human Hand to Fetch Gripper](#5-transfer-human-hand-to-fetch-gripper)
+    - [🧩 To visualize scene, hamer hand pose \& transferred pose](#-to-visualize-scene-hamer-hand-pose--transferred-pose)
+    - [🔧 Arguments](#-arguments)
+    - [6. BundleSDF Docker Setup](#6-bundlesdf-docker-setup)
+    - [7. Object Pose Estimation Using BundleSDF](#7-object-pose-estimation-using-bundlesdf)
+  - [8. Run GSAM2 + BundleSDF for Real-World Object Pose Estimation](#8-run-gsam2--bundlesdf-for-real-world-object-pose-estimation)
+    - [👉 Object Pose Estimation with Multi-Frame Context:](#-object-pose-estimation-with-multi-frame-context)
+  - [🗂️ Output Directory Structure After Data Processing](#️-output-directory-structure-after-data-processing)
+    - [🗂️ obj\_prompt\_mapper.json](#️-obj_prompt_mapperjson)
+  - [🙏 Acknowledgments](#-acknowledgments)
+
+
 ## 🛠️ Setup Instructions
 
 To set up the environment and prepare the vie pipeline, run the following commands:

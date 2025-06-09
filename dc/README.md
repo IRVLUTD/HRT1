@@ -1,7 +1,10 @@
-
 # 🛠️ Hardware Setup for Data Collection
-
-![📸 Overview of the data capture process](../media/data_capture/dc.png)
+- [🛠️ Hardware Setup for Data Collection](#️-hardware-setup-for-data-collection)
+  - [1️⃣ Setup Robot 🤖](#1️⃣-setup-robot-)
+    - [Steps:](#steps)
+  - [2️⃣ Setup HoloLens2 👓](#2️⃣-setup-hololens2-)
+    - [Steps:](#steps-1)
+  - [📂 Data Directory Structure After Capture](#-data-directory-structure-after-capture)
 
 ---
 
