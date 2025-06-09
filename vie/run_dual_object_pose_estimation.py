@@ -18,7 +18,7 @@ import numpy as np
 import yaml as pyyaml
 from PIL import Image as PILImg
 from sensor_msgs.msg import Image as RosImage
-from fetch_ros_listener import ImageListener
+from ros_listener import FetchImageListener
 from bundlesdf_processor import BundleSDFProcessor
 from utils import (
     read_obj_prompts,
@@ -237,7 +237,7 @@ def main():
     bsdf_demo_dir = os.path.join(bundle_sdf_out_dir, "demonstration")
 
     obj_prompt_mapper = read_obj_prompts(bsdf_demo_dir)
-    listener = ImageListener(camera=args.camera)
+    listener = FetchImageListener(camera=args.camera)
     rospy.sleep(0.1)
 
     timing_results = {}
@@ -313,7 +313,7 @@ def main():
     # capture one realtime frame to test whether the demo text prompts work
     # if not, ask user to input custom text prompts and veify in realtime
     obj_prompt_mapper_rollout = obj_prompt_mapper.copy()
-    im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser = (
+    im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera = (
         listener.get_latest_listener_data()
     )
 
@@ -359,7 +359,7 @@ def main():
         not rospy.is_shutdown() and curr_frame <= args.demo_frames + args.rollout_frames
     ):
         try:
-            im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera, RT_laser = (
+            im_color, depth_img, rgb_frame_id, rgb_frame_stamp, RT_camera = (
                 listener.get_latest_listener_data()
             )
             if im_color is None:
