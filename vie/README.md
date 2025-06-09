@@ -76,8 +76,6 @@ python run_gdino_samv2.py --input_dir $TASK_DATA_PATH/rgb --text_prompt <obj-tex
 # $TASK_DATA_PATH/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
 ```
 
----
-
 ### 4. ✋ Extracting Right/Left Hand BBoxes and 3D Meshes (HaMeR)
 ![vie-hand](../media/data_capture/vie-hand.png)
 
@@ -106,7 +104,7 @@ If you encounter:
 from collections import Mapping
 ImportError: cannot import name 'Mapping' from 'collections'
 ```
-✅ Fix: `pip install --upgrade networkx`
+✅ Try this fix: `pip install --upgrade networkx`
 
 ### 5. Transfer Human Hand to Fetch Gripper
 
@@ -157,7 +155,6 @@ ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' 
 - If the predicted pose lies entirely within the object mask, it can be considered valid.
 - If not, the frame can be skipped—this simple heuristic helps filter out incorrect poses efficiently.
 
----
 
 ## 7. Run GSAM2 + BundleSDF for Real-World Object Pose Estimation
 Use the following command to perform real-time object pose estimation by combining source frames (human demo) with rollout frames (robot execution):
