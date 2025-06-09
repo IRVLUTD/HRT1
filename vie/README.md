@@ -3,7 +3,7 @@
 
 ## 🛠️ Setup Instructions
 
-To set up the environment and prepare the project, run the following commands:
+To set up the environment and prepare the vie pipeline, run the following commands:
 
 ### 🧑‍💻 Run the Setup Script
 ```shell
