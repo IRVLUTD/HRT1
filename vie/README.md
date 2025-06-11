@@ -176,7 +176,7 @@ This script visualizes the combined 3D point clouds from:
 - `hamer/transfer_hand_mesh/` — Transferred gripper mesh
 
 ```shell
-python ply_viewer_with_combined_ply.py \
+python seq_viewer.py \
 --data_dir $DATA_ROOT/out/hamer/ \
 --num_points 100000000 \
 --auto_mode \
