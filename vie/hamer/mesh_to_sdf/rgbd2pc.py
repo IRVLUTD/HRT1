@@ -85,7 +85,7 @@ class RGBD2PC:
 
         # Save the point cloud as a PLY file
         o3d.io.write_point_cloud(file_path, pc)
-        print(f"Point cloud saved to {file_path}")
+        # print(f"Point cloud saved to {file_path}")
 
 
     def backproject_camera(self, im_depth, K):  
@@ -124,7 +124,7 @@ class RGBD2PC:
     
     
     def get_sdf_cost(self, query_points, epsilon=0.02, w_inside=1, vis=False):
-        print('computing sdf cost...')
+        # print('computing sdf cost...')
         distances, indices = self.kd_tree.query(query_points)
         distances = distances.astype(np.float32).reshape(-1)
         inside = ~self.is_outside(query_points)
@@ -148,7 +148,7 @@ class RGBD2PC:
         cost[inside] = w_inside * (-distances[inside] + epsilon / 2)
         index = (distances > 0) & (distances < epsilon)
         cost[index] = np.square(distances[index] - epsilon) / (2 * epsilon)
-        print('done')
+        # print('done')
         return cost
 
 

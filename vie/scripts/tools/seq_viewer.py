@@ -3,6 +3,7 @@ import numpy as np
 import os
 import argparse
 from open3d.visualization import gui
+from pathlib import Path
 
 # Try to import screeninfo for automatic resolution detection
 try:
@@ -223,7 +224,7 @@ class PointCloudViewerApp:
 def main():
     gui.Application.instance.initialize()
     args = get_args()
-    pcds, ply_names = load_ply_files(args.data_dir, args.num_points, args.left_hand)
+    pcds, ply_names = load_ply_files(Path(args.data_dir) / "out" / "hamer", args.num_points, args.left_hand)
     app = PointCloudViewerApp(pcds, ply_names, args.auto_mode, args.fps, args.skip_viz_frames)
     gui.Application.instance.run()
 

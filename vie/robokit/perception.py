@@ -476,7 +476,7 @@ class SAM2VideoPredictor(ObjectPredictor):
 
             # Save the mask as a PNG file
             mask_image.save(save_path, format="PNG")
-            print(f"Binary mask saved successfully at {save_path}")
+            # print(f"Binary mask saved successfully at {save_path}")
         except Exception as e:
             print(f"Error saving binary mask: {e}")
 
@@ -511,7 +511,7 @@ class SAM2VideoPredictor(ObjectPredictor):
                 # Create output directory if save_output is True
                 if save_output:
                     out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
-                    output_dir = os.path.join(os.path.dirname(video_dir), f"../out/samv2{out_path_suffix}")
+                    output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
                     masks_dir = os.path.join(output_dir, "obj_masks")
                     traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
                     os.makedirs(masks_dir, exist_ok=True)

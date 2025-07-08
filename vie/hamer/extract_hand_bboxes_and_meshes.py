@@ -82,7 +82,7 @@ def load_depth_img(img_path):
     try:
         # Replace 'rgb' with 'depth' and change the extension to '.png'
         depth_path = str(img_path).replace('rgb', 'depth').replace('jpg', 'png')
-        logger.info(f"Attempting to load depth image from: {depth_path}")
+        # logger.info(f"Attempting to load depth image from: {depth_path}")
 
         # Read the depth image
         depth = cv2.imread(depth_path, cv2.IMREAD_ANYDEPTH)
@@ -91,7 +91,7 @@ def load_depth_img(img_path):
 
         # Convert depth to float32 and normalize
         depth = depth.astype(np.float32) / 1000.0
-        logger.info("Depth image loaded and normalized successfully.")
+        # logger.info("Depth image loaded and normalized successfully.")
 
         return depth
 
@@ -107,52 +107,6 @@ def load_depth_img(img_path):
         logger.error(f"An unexpected error occurred while loading the depth image: {e}")
         raise
 
-
-
-def get_my_intrinsic_matrix(intrinsic_of=''):
-    """
-    Retrieves the intrinsic matrix of the target camera.
-
-    The intrinsic matrix describes the camera's internal parameters, including
-    focal lengths and the principal point. This function returns the intrinsic 
-    matrix of the IRVL Fetch robot camera.
-
-    Returns:
-        np.ndarray: A 3x3 intrinsic matrix of the target camera.
-
-    Example:
-        >>> intrinsic_matrix = get_my_intrinsic_matrix()
-        >>> print(intrinsic_matrix)
-        [[574.0528    0.      319.5   ]
-         [  0.      574.0528  239.5   ]
-         [  0.        0.        1.    ]]
-    """
-    logger.info(f"Retrieving {intrinsic_of} intrinsic matrix.")
-
-    if intrinsic_of != 'umi_ft_fetch':
-        # new fetch intrinsics after ft-sensor setup calibration
-        intrinsic_matrix = np.array([
-            [527.8869068647631, 0.0, 321.7148665756361],
-            [0.0, 524.7942507494529, 230.2819198622499],
-            [0.0, 0.0, 1.0],
-        ])
-    elif intrinsic_of != 'default_fetch':
-        # default fetch
-        intrinsic_matrix = np.array([
-            [574.0527954101562, 0.0, 319.5],
-            [0.0, 574.0527954101562, 239.5],
-            [0.0, 0.0, 1.0]
-        ])
-    else:
-        # gazebo fetch intrinsics
-        intrinsic_matrix = np.array([ 
-            [554.25469119,   0.        , 320.5       ],
-            [  0.        , 554.25469119, 240.5       ],
-            [  0.        ,   0.        ,   1.        ]
-        ])
-
-    logger.info("Intrinsic matrix successfully retrieved.")
-    return intrinsic_matrix
 
 def obj_function(x, vertices, translation, K1, K2, kd_tree, weight_3d=10):
     """
@@ -182,28 +136,28 @@ def obj_function(x, vertices, translation, K1, K2, kd_tree, weight_3d=10):
         x1 = K1 @ V1.T
         x1[0, :] /= x1[2, :]
         x1[1, :] /= x1[2, :]
-        logger.debug("Projection 1 completed.")
+        # logger.debug("Projection 1 completed.")
 
         # Projection 2
         V2 = vertices + x
         x2 = K2 @ V2.T
         x2[0, :] /= x2[2, :]
         x2[1, :] /= x2[2, :]
-        logger.debug("Projection 2 completed.")
+        # logger.debug("Projection 2 completed.")
 
         # Compute 3D distances
         distances, _ = kd_tree.query(V2)
         distances = distances.astype(np.float32).reshape(-1)
         error_3d = np.mean(distances)
-        logger.debug(f"3D distance error: {error_3d}")
+        # logger.debug(f"3D distance error: {error_3d}")
 
         # Compute 2D projection error
         error_2d = np.square(x1[:2] - x2[:2]).mean()
-        logger.debug(f"2D projection error: {error_2d}")
+        # logger.debug(f"2D projection error: {error_2d}")
 
         # Combine errors with weighting
         total_error = error_2d + weight_3d * error_3d
-        logger.info(f"Total error: {total_error} (2D: {error_2d}, 3D: {error_3d}, Weight: {weight_3d})")
+        # logger.info(f"Total error: {total_error} (2D: {error_2d}, 3D: {error_3d}, Weight: {weight_3d})")
 
         return total_error
 
@@ -240,7 +194,7 @@ class HandInfoExtractor:
             detectron2_cfg.model.roi_heads.box_predictor.test_nms_thresh = 0.4
         return DefaultPredictor_Lazy(detectron2_cfg)
 
-    def extract_info(self, img_path: str, opt_weight: float, intrinsic_of: str='', save_mesh: bool = False):
+    def extract_info(self, img_path: str, opt_weight: float, save_mesh: bool = False):
         # Get the root directory name (parent folder name)
         parent_dir = os.path.dirname(img_path)
         
@@ -287,9 +241,9 @@ class HandInfoExtractor:
 
         # Optionally save the meshes
         if save_mesh:
-            output_path, pcd, out, intrinsic_matrix = self._save_meshes(intrinsic_of, img_cv2, boxes, right, img_path, parent_dir)
+            output_path, pcd, out = self._save_meshes(img_cv2, boxes, right, img_path, parent_dir)
         else:
-            output_path, pcd, out, intrinsic_matrix = None, None, None, None
+            output_path, pcd, out= None, None, None
 
         return ExtractorOutput(hand_boxes=boxes, is_right=right, output_path=output_path, pcd=pcd, out=out, opt_weight=opt_weight)
         
@@ -352,7 +306,7 @@ class HandInfoExtractor:
 
         # Save the point cloud to a PLY file
         o3d.io.write_point_cloud(output_path, pcd)
-        print(f"Point cloud saved to '{output_path}' using Open3D.")
+        # print(f"Point cloud saved to '{output_path}' using Open3D.")
 
         return output_path, pcd
 
@@ -376,11 +330,11 @@ class HandInfoExtractor:
 
         # Save the dictionary as an .npz file
         np.savez_compressed(filepath, **out_numpy)
-        print(f"Output saved to {filepath}")
+        # print(f"Output saved to {filepath}")
 
-    def _save_meshes(self, intrinsic_of, img_cv2, boxes, right, img_path, parent_dir):
+    def _save_meshes(self, img_cv2, boxes, right, img_path, parent_dir):
         # Create the output folder with 'hamer/root_dir_name' suffix
-        out_root_dir = f"../out.{'gazebo' if intrinsic_of == '' else intrinsic_of}.{opt_weight}/hamer"
+        out_root_dir = f"../out/hamer"
         plots_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/extra_plots")) # for plots and objs
         model_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/model")) # for model output
         _3dhand_out_folder = os.path.normpath(os.path.join(parent_dir, f"{out_root_dir}/3dhand")) # for hand aligned with fetch cam
@@ -479,8 +433,8 @@ class HandInfoExtractor:
             # eroder mask
             kernel = np.ones((5, 5), np.uint8) 
             mask = cv2.erode(mask.astype(np.uint8), kernel)
-            mask = 1 - mask 
-            intrinsic_matrix = get_my_intrinsic_matrix(intrinsic_of=intrinsic_of)
+            mask = 1 - mask
+            intrinsic_matrix = np.loadtxt(os.path.join(parent_dir, '..', 'cam_K.txt'))
 
             # convert depth to point cloud
             depth_pc = RGBD2PC(depth, intrinsic_matrix, camera_pose=np.eye(4), target_mask=mask, threshold=10.0, use_kmeans=True)
@@ -557,18 +511,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images for hand mesh bounding box extraction.")
     parser.add_argument("--input_dir", type=str, required=True, help="Directory containing images.")
     parser.add_argument("--opt_weight", type=float, default=100.0, help="weight for hamer hand mesh optimization with depth")
-    parser.add_argument(
-        "--intrinsic_of",
-        type=str,
-        choices=['umi_ft_fetch', 'default_fetch'],
-        default='',
-        help="Options: 'umi_ft_fetch', 'default_fetch', or '' for gazebo"
-    )
     args = parser.parse_args()
 
     input_dir = args.input_dir
     opt_weight = args.opt_weight
-    intrinsic_of = args.intrinsic_of
     
     # Check if the input directory exists and is a valid directory
     if not os.path.isdir(input_dir):
@@ -591,7 +537,7 @@ if __name__ == "__main__":
                 
                 logging.info("Starting extraction...")
                 try:
-                    result = hand_info_extractor.extract_info(img_path, opt_weight=opt_weight, intrinsic_of=intrinsic_of, save_mesh=True)
+                    result = hand_info_extractor.extract_info(img_path, opt_weight=opt_weight, save_mesh=True)
                 except Exception as e:
                     print(f"Skipping...:{e}")
                     continue

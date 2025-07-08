@@ -375,19 +375,19 @@ class Renderer:
         scene = pyrender.Scene(bg_color=[*scene_bg_color, 0.0],
                                ambient_light=(0.3, 0.3, 0.3))
         for i,mesh in enumerate(mesh_list):
-            print(i, mesh.primitives[0].positions)
+            # print(i, mesh.primitives[0].positions)
             scene.add(mesh, f'mesh_{i}')
 
         camera_pose = np.eye(4)
         # camera_pose[:3, 3] = camera_translation
         camera_center = [render_res[0] / 2., render_res[1] / 2.]
         focal_length = focal_length if focal_length is not None else self.focal_length
-        print(focal_length, camera_center)
+        # print(focal_length, camera_center)
         camera = pyrender.IntrinsicsCamera(fx=focal_length, fy=focal_length,
                                            cx=camera_center[0], cy=camera_center[1], zfar=1e12)
         projection_matrix = camera.get_projection_matrix(render_res[0], render_res[1])
         intrinsic_matrix = projection_to_intrinsics(projection_matrix, render_res[0], render_res[1])
-        print(intrinsic_matrix, render_res)
+        # print(intrinsic_matrix, render_res)
 
         # Create camera node and add it to pyRender scene
         camera_node = pyrender.Node(camera=camera, matrix=camera_pose)

@@ -40,7 +40,7 @@ The script follows these steps:
    - Run this script from the command line, passing the required `input_dir` and `text_prompt` flags,
      and an optional `save_interval` (default is 1):
 
-     `python test_gdino_samv2.py --input_dir=<path_to_frames> --text_prompt="object description" --save_interval=2`
+     `python run_gdino_samv2.py --input_dir=<path_to_frames> --text_prompt="object description" --save_interval=2`
 """
 
 

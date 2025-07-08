@@ -80,7 +80,7 @@ export TASK_DATA_ROOT=/path/to/data/captured/task_x
 Use GDINO with a text prompt to identify the object of interest in the first frame:
 ```shell
 cd $VIE_ROOT
-python run_gdino_samv2.py \
+python test_gdino_prompts.py \
     --input_dir $TASK_DATA_ROOT/rgb \
     --text_prompt <obj-text-prompt> \
     --infer_first_only
@@ -116,10 +116,7 @@ This step extracts right(1) / left(0) hand bounding boxes and 3D hand meshes usi
 - Only frames containing at least one visible hand will be processed and saved under `out/hamer/model`.
 ```shell
 cd $VIE_ROOT/hamer
-python extract_hand_bboxes_and_meshes.py \
---intrinsic_of umi_ft_fetch \
---opt_weight 100.0 \
---input_dir $TASK_DATA_ROOT/rgb
+python extract_hand_bboxes_and_meshes.py --opt_weight 100.0 --input_dir $TASK_DATA_ROOT/rgb
 ```
 
 📤 Output Directory Structure:
@@ -177,7 +174,7 @@ This script visualizes the combined 3D point clouds from:
 
 ```shell
 python ply_viewer_with_combined_ply.py \
---data_dir $DATA_ROOT/out/hamer/ \
+--data_dir $DATA_ROOT \
 --num_points 100000000 \
 --auto_mode \
 --fps 10
