@@ -195,6 +195,10 @@ python seq_viewer.py \
 | `--left_hand`        | `flag`  | `False`                    | Load left-hand meshes (`*_0.ply`); right-hand (`*_1.ply`) by default        |
 
 
+
+https://github.com/user-attachments/assets/0647947c-a1e7-45b5-9f82-c48e5228ab0b
+
+
 <hr>
 
 ### 6. BundleSDF Docker Setup 
