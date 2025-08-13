@@ -29,7 +29,8 @@ except ModuleNotFoundError as e:
         "Ensure 'my_cpp' module is built in BundleSDF/build/. Run 'cmake .. && make' in BundleSDF/build/"
     )
     sys.exit(1)
-from utils import download_loftr_weights, remove_unecessary_files
+
+from .utils import download_loftr_weights, remove_unecessary_files
 import yaml as pyyaml
 
 

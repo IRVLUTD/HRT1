@@ -18,7 +18,7 @@ from robokit.ros.ros_utils import ros_qt_to_rt
 import tf2_ros
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
-from utils import compute_xyz
+from my_bsdf.utils import compute_xyz
 
 
 class FetchImageListener:

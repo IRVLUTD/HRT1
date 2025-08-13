@@ -19,7 +19,7 @@ import numpy as np
 import yaml as pyyaml
 from PIL import Image as PILImg
 from sensor_msgs.msg import Image as RosImage
-from ros_listener import FetchImageListener
+from robokit.ros.ros_listener import FetchImageListener
 from my_bsdf.bundlesdf_processor import BundleSDFProcessor
 from my_bsdf.utils import (
     read_obj_prompts,
@@ -27,7 +27,7 @@ from my_bsdf.utils import (
     create_symlink,
     remove_symlink_only,
     copy_file_if_exists,
-    create_required_out_folders,
+    create_required_out_folders
 )
 from robokit.utils import combine_masks, annotate, overlay_masks
 

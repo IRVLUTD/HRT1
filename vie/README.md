@@ -199,7 +199,7 @@ BundleSDF runs in docker. First setup docker container and enter
 ```shell
 cd $VIE_ROOT/BundleSDF/
 ./docker/start_docker.sh # start docker container
-./docker/enter_docker.sh # enter docker container
+./docker/enter_docker.sh $PWD # enter docker container
 ```
 
 ### 7. Object Pose Estimation Using BundleSDF
@@ -228,12 +228,12 @@ ImportError: /usr/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.29' 
 Use the following command to perform real-time object pose estimation (in docker) by combining source frames (human demo) with rollout frames (robot execution):
 ```shell
 cd $VIE_ROOT
-./run_obj_pose_est.sh $TASK_DATA_ROOT <text-prompt> <src-frames> <rollout-frames>
+./run_bundlesdf.sh $TASK_DATA_ROOT <src-frames> <rollout-frames>
 # Example:
-# ./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" "blue hammer" 15 5
+# ./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" 15 5
 ```
 🧩 Arguments:
-- `text-prompt`: The object name or description used for GDINO+SAMv2 (e.g., "blue hammer").
+- `task-root-dir-path`: Task root dir path
 - `src-frames`: Number of frames to extract from the human demonstration.
 - `rollout-frames`: Number of frames to process during real-time rollout.
 
