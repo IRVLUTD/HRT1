@@ -234,7 +234,7 @@ Use the following command to perform real-time object pose estimation (in docker
 cd $VIE_ROOT
 ./run_bundlesdf.sh $TASK_DATA_ROOT <src-frames> <rollout-frames>
 # Example:
-# ./run_obj_pose_est.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" 15 5
+# ./run_bundlesdf.sh "./vie/_DATA/new-data-from-fetch-and-laptop/22tasks.latest/task_8_17s-use_hammer/" 15 5
 ```
 🧩 Arguments:
 - `task-root-dir-path`: Task root dir path
