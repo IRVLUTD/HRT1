@@ -1,0 +1,9 @@
+<launch>
+    <!-- Argument for robot type, defaulting to "fetch" -->
+    <arg name="robot_type" default="fetch" doc="Type of robot: 'fetch' or 'fetch_UMI'"/>
+
+    <!-- Launch the sensor node with robot_type as a private parameter -->
+    <node pkg="fetch_netft" type="sensor.py" name="ft_sensor" output="screen">
+        <param name="robot_type" value="$(arg robot_type)" />
+    </node>
+</launch>

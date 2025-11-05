@@ -5,6 +5,7 @@
 #----------------------------------------------------------------------------------------------------
 
 import os
+import yaml as pyyaml
 
 def set_seed(seed):
     np.random.seed(seed)

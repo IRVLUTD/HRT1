@@ -1,0 +1,7 @@
+fetch:
+  gripper_mass: 1.56    # kg
+  gripper_cog: [0.0547, 0.0, 0.0]  # meters in ati_link frame
+
+fetch_UMI:
+  gripper_mass: 1.7    # kg
+  gripper_cog: [0.0660, 0.0, 0.0]  # meters in ati_link frame15

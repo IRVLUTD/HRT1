@@ -1,0 +1,546 @@
+{
+    "task_1_shelf-bottle_interval_0.05": {
+        "gripper_close_frame": 55,
+        "gripper_open_frame": 159,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_2_9s-toggle-light-switch": {
+        "gripper_close_frame": 28,
+        "prev_gripper_close_frame": 34,
+        "gripper_open_frame": 46,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": false,
+        "use_default_fetch_fingers": false
+    },
+    "task_3_14s-close-jar-with-lid": {
+        "gripper_close_frame": 47,
+        "gripper_open_frame": 75,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_4_17s-fold-towel": {
+        "gripper_close_frame": 35,
+        "gripper_open_frame": 62,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_5_15s-open-folder": {
+        "gripper_close_frame": 35,
+        "gripper_open_frame": 76,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_6_8s-press-keyboard-key": {
+        "gripper_close_frame": 30,
+        "gripper_open_frame": 36,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_7_14s-use-cleaning-brush": {
+        "gripper_close_frame": 25,
+        "gripper_open_frame": 89,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_8_17s-use_hammer": {
+        "gripper_close_frame": 34,
+        "gripper_open_frame": 110,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_9_use-stapler": {
+        "gripper_close_frame": 26,
+        "gripper_open_frame": 69,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_10_15s-use-sponge-scrub": {
+        "gripper_close_frame": 29,
+        "gripper_open_frame": 97,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_11_17s-use-basting-brush": {
+        "gripper_close_frame": 35,
+        "gripper_open_frame": 118,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_12_12s-use-spatula": {
+        "gripper_close_frame": 23,
+        "gripper_open_frame": 77,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_13_13s-sprinkle-salt": {
+        "gripper_close_frame": 27,
+        "gripper_open_frame": 89,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_14_15s-pouring": {
+        "gripper_close_frame": 30,
+        "gripper_open_frame": 105,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_15_19s-use-knife": {
+        "gripper_close_frame": 30,
+        "gripper_open_frame": 129,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_16_12s-wipe-table-with-towel": {
+        "gripper_close_frame": 27,
+        "gripper_open_frame": 77,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_17_15s-squeeze-sponge-ball": {
+        "gripper_close_frame": 25,
+        "gripper_open_frame": 87,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_18_10s-move-chair": {
+        "gripper_close_frame": 30,
+        "gripper_open_frame": 53,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_19_fetch-shelf-ycb-red-mug_interval_0.05": {
+        "gripper_close_frame": 55,
+        "gripper_open_frame": 132,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_20_microwave-open_interval_0.05": {
+        "gripper_close_frame": 38,
+        "gripper_open_frame": 88,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_21_whiteboard-eraser_interval_0.05": {
+        "gripper_close_frame": 85,
+        "gripper_open_frame": 220,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": false
+    },
+    "task_22_water_fill_from_water_cooler": {
+        "gripper_close_frame": 59,
+        "gripper_open_frame": 405,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_24_dummy": {
+        "gripper_close_frame": 0,
+        "gripper_open_frame": 42,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_25_dummy2": {
+        "gripper_close_frame": 0,
+        "gripper_open_frame": 42,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true
+    },
+    "task_26_crackerbox": {
+        "gripper_close_frame": 0,
+        "gripper_open_frame": 42,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_27_put_bread_inside_toaster": {
+        "gripper_close_frame": 12,
+        "gripper_open_frame": 33,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_28_put_toy_in_bin": {
+        "gripper_close_frame": 11,
+        "gripper_open_frame": 34,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_29_scoop_from_bowl": {
+        "gripper_close_frame": 21,
+        "gripper_open_frame": 60,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_30_pour_chocolates_into_bowl": {
+        "gripper_close_frame": 9,
+        "gripper_open_frame": 35,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_31_clean_plate_with_towel": {
+        "gripper_close_frame": 8,
+        "gripper_open_frame": 64,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_32_scoop_from_bowl": {
+        "gripper_close_frame": 0,
+        "gripper_open_frame": 58,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_33_hang_cap": {
+        "gripper_close_frame": 15,
+        "gripper_open_frame": 39,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_34_drop_omlette_with_pan": {
+        "gripper_close_frame": 14,
+        "gripper_open_frame": 115,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_35_opening_the_lid": {
+        "gripper_close_frame": 13,
+        "gripper_open_frame": 51,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 2
+    },
+    "task_36_seasoning_on_omlette_v1": {
+        "gripper_close_frame": 17,
+        "gripper_open_frame": 92,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_37_takeout_bread_from_toaster_v1": {
+        "gripper_close_frame": 10,
+        "gripper_open_frame": 50,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_38_seasoning_on_omlette_v2": {
+        "gripper_close_frame": 10,
+        "gripper_open_frame": 62,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_39_seasoning_on_omlette_v1": {
+        "gripper_close_frame": 8,
+        "gripper_open_frame": 63,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_40_10s_serve_lays_on_plates": {
+        "gripper_close_frame": 34,
+        "gripper_open_frame": 91,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_41_12s_serve_lays_on_plate_left_hand": {
+        "gripper_close_frame": 31,
+        "gripper_open_frame": 107,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_42_13s_clean_plate_with_towel": {
+        "gripper_close_frame": 36,
+        "gripper_open_frame": 109,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_43_15s_place_mouse_on_mousepad": {
+        "gripper_close_frame": 51,
+        "gripper_open_frame": 113,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_44_12s_clean_plate_with_tissue": {
+        "gripper_close_frame": 11,
+        "gripper_open_frame": 94,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_45_12s_clean_plate_with_brush": {
+        "gripper_close_frame": 80,
+        "gripper_open_frame": 165,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_46_9s_squeegee": {
+        "gripper_close_frame": 24,
+        "gripper_open_frame": 72,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 1
+    },
+    "task_47_8s_close_jar_with_red_lid_with_left_hand": {
+        "gripper_close_frame": 32,
+        "gripper_open_frame": 67,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_48_4s_remove_cap_from_hook_left_hand_person2": {
+        "gripper_close_frame": 18,
+        "gripper_open_frame": 37,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 1
+    },
+    "task_49_4s_hand_cap_person2": {
+        "gripper_close_frame": 5,
+        "gripper_open_frame": 29,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_50_15s_place_mouse_on_mousepad": {
+        "gripper_close_frame": 35,
+        "gripper_open_frame": 116,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 2
+    },
+    "task_51_wipe_lefthand": {
+        "gripper_close_frame": 50,
+        "gripper_open_frame": 125,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 1
+    },
+    "task_52_newcap_hang": {
+        "gripper_close_frame": 20,
+        "gripper_open_frame": 63,
+        "hand_flag": 0,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    },
+    "task_54_7s_close_fire_extinguisher_door": {
+        "gripper_close_frame": 19,
+        "gripper_open_frame": 57,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 1,
+        "static_object": 1
+    },
+    "task_55_18s_omelette_from_pan_to_plate": {
+        "gripper_close_frame": 69,
+        "gripper_open_frame": 166,
+        "hand_flag": 1,
+        "trim_start_b4_close_delta": 20,
+        "trim_end_a4ter_open_delta": -15,
+        "filter": true,
+        "use_default_fetch_fingers": true,
+        "active_object": 2,
+        "static_object": 1
+    }
+}

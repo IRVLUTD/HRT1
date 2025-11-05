@@ -1,0 +1,4 @@
+sensor_msgs/Image rgb
+std_msgs/String textprompt
+---
+sensor_msgs/Image mask
