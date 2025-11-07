@@ -13,6 +13,7 @@ import toppra.constraint as constraint
 from config.transforms import RT_gripper_configs
 from config.paths import GRIPPER_OPEN_CLOSE_INFO_FILE
 from utils.utils import get_gaussian_interpolation_coefficients
+from scipy.spatial.transform import Rotation as R
 
 def extract_trajectory(
     data_dir_path,
@@ -180,8 +181,29 @@ def get_object_delta(data_dir_path, obj_id=1):
 
 def interpolate_trajectory(trajectory1, trajectory2, scale=4):
     mix, mix_rev = get_gaussian_interpolation_coefficients(len(trajectory1), scale=scale)
-    trajectory_combined = trajectory1 * mix[:,None,None] + trajectory2 * mix_rev[:,None,None]
-    print(trajectory_combined)
+    trajectory_combined = []
+    for i in range(len(trajectory1)):
+        T1 = trajectory1[i]
+        T2 = trajectory2[i]
+
+        # --- Translation interpolation ---
+        p1 = T1[:3, 3]
+        p2 = T2[:3, 3]
+        p = mix[i] * p1 + mix_rev[i] * p2
+
+        # --- Rotation interpolation (SLERP) ---
+        R1 = R.from_matrix(T1[:3, :3])
+        R2 = R.from_matrix(T2[:3, :3])
+
+        slerp = R.slerp(0, 1, [R1, R2])
+        R_interp = slerp(mix[i]).as_matrix()
+
+        # --- Combine into homogeneous matrix ---
+        T_interp = np.eye(4)
+        T_interp[:3, :3] = R_interp
+        T_interp[:3, 3] = p
+        trajectory_combined.append(T_interp)
+    # print(trajectory_combined)
     return trajectory_combined
 
 def transform_trajectory(trajectory,
