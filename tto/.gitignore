@@ -5,7 +5,6 @@ mm_ws/devel/
 mm_ws/build/
 mm_ws/src/fetch_gazebo/fetch_gazebo/models/
 mm_ws/.catkin_tools/
-mm_ws/scripts/config/paths.py
 mm_ws/scripts/experiment_data/*
 
 # Byte-compiled / optimized / DLL files
