@@ -8,7 +8,7 @@ vie/hamer-rfp.sh
 vie/run-gdino-samv2.sh
 vie/realworld.eraser/
 vie/realworld/
-media/
+# media/
 imgs/irvl-whiteboard-write-and-erase/
 build/
 devel/

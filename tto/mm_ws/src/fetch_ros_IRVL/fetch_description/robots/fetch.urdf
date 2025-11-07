@@ -440,30 +440,30 @@
   </link>
   
   <joint name="finger_tip_axis" type="fixed">
-    <origin rpy="0 0 0" xyz="0.10 0 0" />
+    <origin rpy="0 0 0" xyz="0.03 0 0" />
     <parent link="gripper_link" />
     <child link="finger_tip_link" />
   </joint>
 
-  <link name="r_gripper_finger_link">
+    <link name="r_gripper_finger_link">
     <inertial>
-      <origin rpy="0 1.5708 0" xyz="-0.01 0 0" />
+      <origin rpy="0 0 0" xyz="-0.01 0 0" />
       <mass value="0.0798" />
       <inertia ixx="0.002" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
     </inertial>
     <visual>
-      <origin rpy="0 1.5708 0" xyz="-0.035 -0.005 0" />
+      <origin rpy="0 0 0" xyz="0 0.101425 0" />
       <geometry>
-        <mesh filename="package://fetch_description/meshes/fingers/simplified_1/r_finger.stl" />
+        <mesh filename="package://fetch_description/meshes/r_gripper_finger_link.STL" />
       </geometry>
       <material name="">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5708 0" xyz="-0.035 -0.005 0" />
+      <origin rpy="0 0 0" xyz="0 0.101425 0" />
       <geometry>
-        <mesh filename="package://fetch_description/meshes/fingers/simplified_1/r_finger.stl" />
+        <mesh filename="package://fetch_description/meshes/r_gripper_finger_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -473,27 +473,25 @@
     <child link="r_gripper_finger_link" />
     <axis xyz="0 1 0" />
   <limit effort="60" lower="0.0" upper="0.05" velocity="0.05" /><dynamics damping="100.0" /></joint>
-
-
   <link name="l_gripper_finger_link">
     <inertial>
-      <origin rpy="0 1.5708 0" xyz="-0.01 0 0" />
+      <origin rpy="0 0 0" xyz="-0.01 0 0" />
       <mass value="0.0798" />
       <inertia ixx="0.002" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
     </inertial>
     <visual>
-      <origin rpy="0 1.5708 0" xyz="-0.035 0.005 0" />
+      <origin rpy="0 0 0" xyz="0 -0.101425 0" />
       <geometry>
-        <mesh filename="package://fetch_description/meshes/fingers/simplified_1/l_finger.stl" />
+        <mesh filename="package://fetch_description/meshes/l_gripper_finger_link.STL" />
       </geometry>
       <material name="">
         <color rgba="0.356 0.361 0.376 1" />
       </material>
     </visual>
     <collision>
-      <origin rpy="0 1.5708 0" xyz="-0.035 0.005 0" />
+      <origin rpy="0 0 0" xyz="0 -0.101425 0" />
       <geometry>
-        <mesh filename="package://fetch_description/meshes/fingers/simplified_1/l_finger.stl" />
+        <mesh filename="package://fetch_description/meshes/l_gripper_finger_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -503,6 +501,7 @@
     <child link="l_gripper_finger_link" />
     <axis xyz="0 -1 0" />
   <limit effort="60" lower="0.0" upper="0.05" velocity="0.05" /><dynamics damping="100.0" /></joint>
+  
   <link name="bellows_link">
     <inertial>
       <origin rpy="0 0 0" xyz="0.0191320000286228 -1.67219873481315E-16 -0.134861625443387" />
