@@ -3,8 +3,8 @@
 </h1>
 
 <p align="center">
-  <a href="https://saihaneeshallu.github.io/">Sai Haneesh Allu</a>, 
-  <a href="https://jishnujayakumar.github.io/">Jishnu Jaykumar P</a>, 
+  <a href="https://saihaneeshallu.github.io/">Sai Haneesh Allu*</a>, 
+  <a href="https://jishnujayakumar.github.io/">Jishnu Jaykumar P*</a>, 
   <a href="https://kninad.github.io/">Ninad Khargonkar</a>, 
   <a href="https://personal.utdallas.edu/~tyler.summers/">Tyler Summers</a>, 
   <a href="https://scholar.google.com/citations?user=V3kGMXUAAAAJ&hl=en>Jian Yao">Jian Yao</a>, 
@@ -12,9 +12,10 @@
 </p>
 
 <div align="center"">
-
+  
 [arXiv](https://arxiv.org/abs/2510.21026)  **|** [Project WebPage](https://irvlutd.github.io/HRT1/) 
 
+(* Equal Contribution)
 </div>
 
 <div align="justify">
