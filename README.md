@@ -38,26 +38,13 @@ Please cite this work if it helps in your research
 }
 ```
 
-## Setup
-### Clone the repository
-git clone --recursive https://github.com/IRVLUTD/HRT1
 
-This codebase, built on top of the [robokit](https://github.com/IRVLUTD/robokit) and [gto](https://github.com/IRVLUTD/GraspTrajOpt) tools. Refer Readme document for each of the below utilities to setup the pipeline. 
+## ⚙️ Setup
 
-- Stage I: [`dc/`](dc/) contains the HoloLens app for data capture.
-- Stage II & III: [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules and grasp transfer.
-  -  **Note**: This also contains BundleSDF module to run object pose estimation during execution.
-- Stage IV: [`tto/`](tto/) contains the logic for trajectory tracking optimization.
-
-<!-- 
-## Execution
-
-## Setup
-
-```sh
-# Clone the repository
+### Clone the Repository and set environment variables
+Clone the repository recursively to include all submodules:
+```bash
 git clone --recursive https://github.com/IRVLUTD/HRT1 && cd HRT1
-
 # Create a conda environment from scratch
 conda create -n hrt1 python=3.10  # Python 3.10 required for samv2 and hamer dependencies
 conda activate hrt1
@@ -65,11 +52,17 @@ conda activate hrt1
 # Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
 ```
+This codebase, built on top of the [robokit](https://github.com/IRVLUTD/robokit) and [gto](https://github.com/IRVLUTD/GraspTrajOpt) tools. Refer Readme document for each of the below utilities to setup the pipeline. 
 
-- To get the latest changes from the submodules
+- Stage I: [`dc/`](dc/) contains the HoloLens app for data capture.
+- Stage II & III: [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules and grasp transfer.
+  -  **Note**: This also contains BundleSDF module to run object pose estimation during execution.
+- Stage IV: [`tto/`](tto/) contains the instructions for simulation , realworld setup and runtime scripts for trajectory tracking optimization and task execution.
+
+ To get the latest changes from the submodules
 ```shell
 git submodule sync
 git submodule update --remote --recursive
 ```
- -->
+
 
