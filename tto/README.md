@@ -24,6 +24,7 @@ This repository provides a complete pipeline for **trajectory tracking and optim
 
 
 ---
+https://github.com/user-attachments/assets/3359c6ae-18cd-4906-8600-5a16a5120054
 
 ## 📦 Install the Module
 
@@ -144,6 +145,10 @@ cd mm_ws/scripts/traj_opt
 python run.py --stow_dir "right" --obj_prompt <object-name> 
 ```
 All the key params are taken from ```paths.py```. Make sure to have it updated relevant to the task being conducted.
+
+
+
+
 
 
 
