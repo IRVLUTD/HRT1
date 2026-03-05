@@ -1,0 +1,296 @@
+import os, sys
+# sys.path.insert(0,"..")
+
+import mesh_to_sdf
+import pathlib
+import numpy as np
+from typing import Union, List
+import trimesh
+import optas
+import pyrender
+import casadi as cs
+from sklearn.neighbors import KDTree
+from optas.spatialmath import rt2tr, rpy2r, ArrayType
+from optas.models import RobotModel
+
+
+cwd = pathlib.Path(__file__).parent.resolve()  # path to current working directory
+
+
+class TTORobotModel(RobotModel):
+
+    # robot model from optas
+    def __init__(
+            self,
+            model_dir,
+            urdf_filename: Union[None, str] = None,
+            urdf_string: Union[None, str] = None,
+            xacro_filename: Union[None, str] = None,
+            name: Union[None, str] = None,
+            time_derivs: List[int] = [0],
+            qddlim: Union[None, ArrayType] = None,
+            T: Union[None, int] = None,
+            param_joints: List[str] = [],
+            collision_link_names=None,
+        ):
+        
+        super().__init__(urdf_filename, urdf_string, xacro_filename, name, time_derivs, qddlim, T, param_joints)
+        self.model_dir = model_dir
+        self.collision_link_names = collision_link_names
+        self.surface_pc_map = self.compute_link_surface_points()
+        self.visual_tf = self.setup_fk_functions()
+        self.field_margin = 0.4
+        self.grid_resolution = 0.05     
+        
+
+    def get_standoff_pose(self, offset, axis):
+        pose_standoff = np.eye(4, dtype=np.float32)
+        if axis == 'x':
+            pose_standoff[0, 3] = offset
+        elif axis == 'y':
+            pose_standoff[1, 3] = offset
+        elif axis == 'z':
+            pose_standoff[2, 3] = offset
+        else:
+            print('unknow standoff axis', axis)
+        return pose_standoff          
+
+
+    def compute_link_surface_points(self):
+        # loop over all the links
+        urdf = self.get_urdf()
+        surface_pc_map = {}
+        for urdf_link in urdf.links:
+            name = urdf_link.name
+            if urdf_link.visual is None:
+                continue
+
+            if self.collision_link_names is None or name in self.collision_link_names:
+                filename = os.path.join(self.model_dir, urdf_link.visual.geometry.filename)
+                # print(filename)
+
+                mesh = trimesh.load(filename)
+                surface_pc = mesh_to_sdf.get_surface_point_cloud(mesh, surface_point_method='sample', bounding_radius=1, 
+                                                                 scan_count=100, scan_resolution=400, sample_point_count=100, calculate_normals=True)
+                surface_pc_map[name] = surface_pc
+                #print('surface points', surface_pc.points.shape)
+        return surface_pc_map
+    
+    
+    def setup_fk_functions(self):
+        # Setup functions to compute visual origins in global frame
+        urdf = self.get_urdf()
+        q = cs.MX.sym("q", self.ndof)
+        link_tf = {}
+        visual_tf = {}
+        for urdf_link in urdf.links:
+            name = urdf_link.name
+            if self.collision_link_names is None or name in self.collision_link_names:
+                lnk_tf = self.get_global_link_transform(urdf_link.name, q)
+                link_tf[name] = cs.Function(f"link_tf_{name}", [q], [lnk_tf])
+
+                xyz, rpy = self.get_link_visual_origin(urdf_link)
+                visl_tf = rt2tr(rpy2r(rpy), xyz)
+
+                # move robot base as well
+                tf = lnk_tf @ visl_tf
+                visual_tf[name] = cs.Function(f"visual_tf_{name}", [q], [tf])
+        return visual_tf
+    
+
+    def compute_fk_surface_points(self, q_user_input, tf_base=None):
+        points_base_all = np.zeros((3, 0), dtype=np.float32)
+        normals_base_all = np.zeros((3, 0), dtype=np.float32)
+        for name in self.surface_pc_map.keys():
+            tf = self.visual_tf[name](q_user_input).toarray()
+            if tf_base is not None:
+                tf = tf_base @ tf
+            surface_pc = self.surface_pc_map[name]
+            points = surface_pc.points
+            normals = surface_pc.normals
+
+            # transform points
+            points_base = tf[:3, :3] @ np.transpose(points) + tf[:3, 3].reshape((3, 1))
+            normals_base = tf[:3, :3] @ np.transpose(normals)
+
+            points_base_all = np.concatenate((points_base_all, points_base), axis=1)
+            normals_base_all = np.concatenate((normals_base_all, normals_base), axis=1)
+        return points_base_all.T, normals_base_all.T
+    
+
+    def compute_fk_link_surface_points(self, q_user_input, name, tf_base=None):
+        tf = self.visual_tf[name](q_user_input).toarray()
+        if tf_base is not None:
+            tf = tf_base @ tf
+        surface_pc = self.surface_pc_map[name]
+        points = surface_pc.points
+        # transform points
+        points_base = tf[:3, :3] @ np.transpose(points) + tf[:3, 3].reshape((3, 1))
+        return points_base.T
+    
+
+    def setup_workspace_field(self, arm_len, arm_height):
+        self.xlim = [0, arm_len]
+        self.ylim = [-arm_len, arm_len]
+        self.zlim = [0, arm_height + arm_len]
+
+        self.origin = np.array([self.xlim[0] - self.field_margin, self.ylim[0] - self.field_margin, self.zlim[0] - self.field_margin]).reshape((1, 3))
+        workspace_points = np.array(np.meshgrid(
+                                np.arange(self.xlim[0] - self.field_margin, self.xlim[1] + self.field_margin, self.grid_resolution),
+                                np.arange(self.ylim[0] - self.field_margin, self.ylim[1] + self.field_margin, self.grid_resolution),
+                                np.arange(self.zlim[0] - self.field_margin, self.zlim[1] + self.field_margin, self.grid_resolution),
+                                indexing='ij'))
+        self.field_shape = workspace_points.shape[1:]
+        self.workspace_points = workspace_points.reshape((3, -1)).T
+        self.field_size = self.workspace_points.shape[0]
+        #print('origin', self.origin)
+        #print('workspace field shape', self.field_shape)
+        #print('workspace field', self.field_size)
+        #print('workspace points', self.workspace_points.shape)
+
+
+    def setup_points_field(self, points):
+
+        self.workspace_bounds = np.stack((points.min(0), points.max(0)), axis=1)
+        margin = self.field_margin
+        self.origin = np.array([self.workspace_bounds[0][0] - margin, self.workspace_bounds[1][0] - margin, self.workspace_bounds[2][0] - margin]).reshape((1, 3))
+        workspace_points = np.array(np.meshgrid(
+                                np.arange(self.workspace_bounds[0][0] - margin, self.workspace_bounds[0][1] + margin, self.grid_resolution),
+                                np.arange(self.workspace_bounds[1][0] - margin, self.workspace_bounds[1][1] + margin, self.grid_resolution),
+                                np.arange(self.workspace_bounds[2][0] - margin, self.workspace_bounds[2][1] + margin, self.grid_resolution),
+                                indexing='ij'))
+        self.field_shape = workspace_points.shape[1:]
+        self.workspace_points = workspace_points.reshape((3, -1)).T
+        self.field_size = self.workspace_points.shape[0]
+        #print('origin', self.origin)
+        #print('workspace field shape', self.field_shape)
+        #print('workspace field', self.field_size)
+        #print('workspace points', self.workspace_points.shape)
+
+
+    def points_to_offsets(self, points):
+        n = points.shape[0]
+        origin = np.repeat(self.origin, n, axis=0)
+        idxes = optas.floor((points - origin) / self.grid_resolution)
+        idxes[:, 0] = cs.fmax(idxes[:, 0], 0)
+        idxes[:, 0] = cs.fmin(idxes[:, 0], self.field_shape[0] - 1)
+        idxes[:, 1] = cs.fmax(idxes[:, 1], 0)
+        idxes[:, 1] = cs.fmin(idxes[:, 1], self.field_shape[1] - 1)
+        idxes[:, 2] = cs.fmax(idxes[:, 2], 0)
+        idxes[:, 2] = cs.fmin(idxes[:, 2], self.field_shape[2] - 1)
+        # offset = n_3 + N_3 * (n_2 + N_2 * n_1)
+        # https://eli.thegreenplace.net/2015/memory-layout-of-multi-dimensional-arrays
+        offsets = idxes[:, 2] + self.field_shape[2] * (idxes[:, 1] + self.field_shape[1] * idxes[:, 0])
+        return offsets
+    
+    
+    def points_to_offsets_numpy(self, points):
+        n = points.shape[0]
+        origin = np.repeat(self.origin, n, axis=0)
+        idxes = (points - origin) / self.grid_resolution
+        idxes[:, 0] = np.clip(idxes[:, 0], 0, self.field_shape[0] - 1).astype(np.int32)
+        idxes[:, 1] = np.clip(idxes[:, 1], 0, self.field_shape[1] - 1).astype(np.int32)
+        idxes[:, 2] = np.clip(idxes[:, 2], 0, self.field_shape[2] - 1).astype(np.int32)        
+        # offset = n_3 + N_3 * (n_2 + N_2 * n_1)
+        # https://eli.thegreenplace.net/2015/memory-layout-of-multi-dimensional-arrays
+        offsets = idxes[:, 2] + self.field_shape[2] * (idxes[:, 1] + self.field_shape[1] * idxes[:, 0])
+        offsets = np.clip(offsets, 0, self.field_size - 1).astype(np.int32)
+        return offsets
+    
+
+    def compute_plan_cost(self, plan, sdf_cost_obstacle, base_position):
+        T = plan.shape[1]
+        cost = 0
+        for i in range(T):
+            q = plan[:, i]
+            points_base, _ = self.compute_fk_surface_points(q)
+            points_world = points_base + np.array(base_position).reshape(1, 3)
+            offsets = self.points_to_offsets_numpy(points_world)
+            cost += np.sum(sdf_cost_obstacle[offsets])
+
+        dist = np.linalg.norm(plan[:, 0] - plan[:, T-1])
+        return cost, dist
+    
+
+    # build an x-y plane occupancy grid using points in robot base
+    def setup_occupancy_grid(self, points, epsilon=0.02):
+        index = points[:, 2] > 0.01
+        # index = points[:, 2] > 0.0
+        xys = points[index, :2]
+        import pdb
+        # pdb.set_trace()
+        self.xlim_2d = [0, np.max(xys[:, 0])- 0.7] 
+        self.ylim_2d = [np.min(xys[:, 1]), np.max(xys[:, 1])]
+        #print(f"limits of xy grid ")
+        #print(f"x lim {self.xlim_2d}")
+        #print(f"y lim {self.ylim_2d}")
+        # input("proceed")
+        self.occupancy_grid_origin = np.array([self.xlim_2d[0] - self.field_margin, self.ylim_2d[0] - self.field_margin]).reshape((1, 2))
+        self.xgrid = np.arange(self.xlim_2d[0] - self.field_margin, self.xlim_2d[1] + self.field_margin, self.grid_resolution)
+        self.ygrid = np.arange(self.ylim_2d[0] - self.field_margin, self.ylim_2d[1] + self.field_margin, self.grid_resolution)
+        workspace_points = np.array(np.meshgrid(
+                            np.arange(self.xlim_2d[0] - self.field_margin, self.xlim_2d[1] + self.field_margin, self.grid_resolution),
+                            np.arange(self.ylim_2d[0] - self.field_margin, self.ylim_2d[1] + self.field_margin, self.grid_resolution),
+                            indexing='ij'))
+        
+        # build the grid
+        self.occupancy_grid_shape = workspace_points.shape[1:]
+        workspace_points = workspace_points.reshape((2, -1)).T
+        kd_tree = KDTree(xys)
+        distances, indices = kd_tree.query(workspace_points)
+        cost = np.zeros_like(distances)
+        index = distances < epsilon
+        cost[index] = 1
+        self.occupancy_grid_size = workspace_points.shape[0]
+        self.occupancy_grid = cost.copy()
+        #print('occupancy grid origin', self.occupancy_grid_origin)
+        #print('occupancy grid shape', self.occupancy_grid_shape)
+        #print('occupancy grid field', self.occupancy_grid.shape)
+
+
+    def points_to_offsets_occupancy(self, points):
+        n = points.shape[0]
+        xys = points[:, :2]
+        origin = np.repeat(self.occupancy_grid_origin, n, axis=0)
+        idxes = optas.floor((xys - origin) / self.grid_resolution)
+        idxes[:, 0] = cs.fmax(idxes[:, 0], 0)
+        idxes[:, 0] = cs.fmin(idxes[:, 0], self.occupancy_grid_shape[0] - 1)
+        idxes[:, 1] = cs.fmax(idxes[:, 1], 0)
+        idxes[:, 1] = cs.fmin(idxes[:, 1], self.occupancy_grid_shape[1] - 1)
+        # offset = n_3 + N_3 * (n_2 + N_2 * n_1)
+        # https://eli.thegreenplace.net/2015/memory-layout-of-multi-dimensional-arrays
+        offsets = idxes[:, 1] + self.occupancy_grid_shape[1] * idxes[:, 0]
+        return offsets
+    
+
+    def points_to_offsets_occupancy_numpy(self, points):
+        n = points.shape[0]
+        xys = points[:, :2]
+        origin = np.repeat(self.occupancy_grid_origin, n, axis=0)
+        idxes = np.floor((xys - origin) / self.grid_resolution)
+        idxes[:, 0] = np.clip(idxes[:, 0], 0, self.occupancy_grid_shape[0] - 1).astype(np.int32)
+        idxes[:, 1] = np.clip(idxes[:, 1], 0, self.occupancy_grid_shape[1] - 1).astype(np.int32)
+        # offset = n_3 + N_3 * (n_2 + N_2 * n_1)
+        # https://eli.thegreenplace.net/2015/memory-layout-of-multi-dimensional-arrays
+        offsets = idxes[:, 1] + self.occupancy_grid_shape[1] * idxes[:, 0]
+        return offsets.astype(np.int32)
+    
+
+    def setup_occupancy_grid_function(self):
+        qc = cs.MX.sym("qc", self.ndof)
+        tf_base_inv = cs.MX.sym("tf_base_inv", 4, 4)
+        occupancy_grid = cs.MX.sym("occupancy_grid", self.occupancy_grid_size)
+
+        points_world_all = None
+        for name in self.surface_pc_map.keys():
+            tf = tf_base_inv @ self.visual_tf[name](qc)
+            points = self.surface_pc_map[name].points
+            points_world = tf[:3, :3] @ points.T + tf[:3, 3].reshape((3, 1))
+            if points_world_all is None:
+                points_world_all = points_world
+            else:
+                points_world_all = optas.horzcat(points_world_all, points_world)
+        points_world_all = points_world_all.T
+        offsets = self.points_to_offsets_occupancy(points_world_all)
+        cost = optas.sum1(occupancy_grid[offsets])
+        return cs.Function(f"occupancy_grid_cost", [qc, tf_base_inv, occupancy_grid], [cost])
