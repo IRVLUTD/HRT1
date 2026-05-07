@@ -57,6 +57,14 @@ class ExtractorOutput:
     opt_weight: Optional[float] = 100.0
 
 
+@dataclass
+class OptConfig:
+    xatol: float = 1e-5
+    maxiter: int = 50
+    disp: bool = False
+    save_debug_renders: bool = False
+
+
 def load_depth_img(img_path):
     """
     Loads a depth image corresponding to the given RGB image path.
@@ -167,7 +175,7 @@ def obj_function(x, vertices, translation, K1, K2, kd_tree, weight_3d=10):
 
 
 class HandInfoExtractor:
-    def __init__(self, checkpoint: str = DEFAULT_CHECKPOINT, body_detector: str = 'vitdet', rescale_factor: float = 2.0):
+    def __init__(self, checkpoint: str = DEFAULT_CHECKPOINT, body_detector: str = 'vitdet', rescale_factor: float = 2.0, opt_cfg: Optional[OptConfig] = None):
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         download_models(CACHE_DIR_HAMER)
         self.model, self.model_cfg = load_hamer(checkpoint)
@@ -176,6 +184,7 @@ class HandInfoExtractor:
         self.cpm = ViTPoseModel(self.device)
         self.renderer = Renderer(self.model_cfg, faces=self.model.mano.faces)
         self.rescale_factor = rescale_factor
+        self.opt_cfg = opt_cfg or OptConfig()
 
     def _initialize_detector(self, body_detector: str):
         from hamer.utils.utils_detectron2 import DefaultPredictor_Lazy
@@ -376,33 +385,29 @@ class HandInfoExtractor:
                 # Get filename from path img_path
                 img_fn, _ = os.path.splitext(os.path.basename(img_path))
                 person_id = int(batch['personid'][n])
-                white_img = (torch.ones_like(batch['img'][n]).cpu() - DEFAULT_MEAN[:,None,None]/255) / (DEFAULT_STD[:,None,None]/255)
-                input_patch = batch['img'][n].cpu() * (DEFAULT_STD[:,None,None]/255) + (DEFAULT_MEAN[:,None,None]/255)
-                input_patch = input_patch.permute(1,2,0).numpy()
-                
-                # (easteregg) uncomment to plot hand cropped images
-                # """
-                regression_img = self.renderer(out['pred_vertices'][n].detach().cpu().numpy(),
-                                        out['pred_cam_t'][n].detach().cpu().numpy(),
-                                        batch['img'][n],
-                                        mesh_base_color=LIGHT_BLUE,
-                                        scene_bg_color=(1, 1, 1),
-                                )
-            
-                side_img = self.renderer(out['pred_vertices'][n].detach().cpu().numpy(),
-                            out['pred_cam_t'][n].detach().cpu().numpy(),
-                            white_img,
-                            mesh_base_color=LIGHT_BLUE,
-                            scene_bg_color=(1, 1, 1),
-                            side_view=True)
-                
-                final_img = np.concatenate([input_patch, regression_img, side_img], axis=1)
+                # Per-hand debug renders (regression + side view) are pure visualization;
+                # gate behind opt_cfg.save_debug_renders since they trigger pyrender + disk I/O per hand per frame.
+                if self.opt_cfg.save_debug_renders:
+                    white_img = (torch.ones_like(batch['img'][n]).cpu() - DEFAULT_MEAN[:,None,None]/255) / (DEFAULT_STD[:,None,None]/255)
+                    input_patch = batch['img'][n].cpu() * (DEFAULT_STD[:,None,None]/255) + (DEFAULT_MEAN[:,None,None]/255)
+                    input_patch = input_patch.permute(1,2,0).numpy()
 
-                # final_img = np.concatenate([input_patch, regression_img], axis=1)
+                    regression_img = self.renderer(out['pred_vertices'][n].detach().cpu().numpy(),
+                                            out['pred_cam_t'][n].detach().cpu().numpy(),
+                                            batch['img'][n],
+                                            mesh_base_color=LIGHT_BLUE,
+                                            scene_bg_color=(1, 1, 1),
+                                    )
 
-                # save image with mesh overlayed
-                cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_{person_id}.png'), 255*final_img[:, :, ::-1])
-                # """
+                    side_img = self.renderer(out['pred_vertices'][n].detach().cpu().numpy(),
+                                out['pred_cam_t'][n].detach().cpu().numpy(),
+                                white_img,
+                                mesh_base_color=LIGHT_BLUE,
+                                scene_bg_color=(1, 1, 1),
+                                side_view=True)
+
+                    final_img = np.concatenate([input_patch, regression_img, side_img], axis=1)
+                    cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_{person_id}.png'), 255*final_img[:, :, ::-1])
 
                 # Add all verts and cams to list
                 verts = out['pred_vertices'][n].detach().cpu().numpy()
@@ -419,14 +424,15 @@ class HandInfoExtractor:
                 focal_length=scaled_focal_length,
             )
 
+            # cam_view is needed downstream to compute the hand mask (depth_pc target_mask),
+            # so it stays. Only the overlay JPG is debug-only and gated.
             cam_view = self.renderer.render_rgba_multiple(all_verts, cam_t=all_cam_t, render_res=img_size[n], is_right=all_right, **misc_args)
 
-            # Overlay image
-            input_img = img_cv2.astype(np.float32)[:,:,::-1]/255.0
-            input_img = np.concatenate([input_img, np.ones_like(input_img[:,:,:1])], axis=2) # Add alpha channel
-            input_img_overlay = input_img[:,:,:3] * (1-cam_view[:,:,3:]) + cam_view[:,:,:3] * cam_view[:,:,3:]
-
-            cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
+            if self.opt_cfg.save_debug_renders:
+                input_img = img_cv2.astype(np.float32)[:,:,::-1]/255.0
+                input_img = np.concatenate([input_img, np.ones_like(input_img[:,:,:1])], axis=2) # Add alpha channel
+                input_img_overlay = input_img[:,:,:3] * (1-cam_view[:,:,3:]) + cam_view[:,:,:3] * cam_view[:,:,3:]
+                cv2.imwrite(os.path.join(plots_out_folder, f'{img_fn}_all.jpg'), 255*input_img_overlay[:, :, ::-1])
 
             # get the hand points
             mask = cam_view[:,:,3] > 0
@@ -446,9 +452,14 @@ class HandInfoExtractor:
             
             out['opt_translation'] = []
 
+            opt_options = {
+                'xatol': self.opt_cfg.xatol,
+                'maxiter': self.opt_cfg.maxiter,
+                'disp': self.opt_cfg.disp,
+            }
             for i in range(len(all_verts)):
                 res = minimize(obj_function, x0, method='nelder-mead',
-                            args=(all_verts[i], all_cam_t[i], K, intrinsic_matrix, depth_pc.kd_tree, opt_weight), options={'xatol': 1e-8, 'disp': True})
+                            args=(all_verts[i], all_cam_t[i], K, intrinsic_matrix, depth_pc.kd_tree, opt_weight), options=opt_options)
                 translation_new = res.x
                 out['opt_translation'].append(translation_new)
             
@@ -511,10 +522,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images for hand mesh bounding box extraction.")
     parser.add_argument("--input_dir", type=str, required=True, help="Directory containing images.")
     parser.add_argument("--opt_weight", type=float, default=100.0, help="weight for hamer hand mesh optimization with depth")
+    parser.add_argument("--opt_xatol", type=float, default=1e-5, help="Nelder-Mead xatol convergence tolerance (was 1e-8; relax for speed).")
+    parser.add_argument("--opt_maxiter", type=int, default=50, help="Nelder-Mead max iterations (was unlimited).")
+    parser.add_argument("--opt_disp", action="store_true", help="Print scipy minimize convergence info per call (slow).")
+    parser.add_argument("--save_debug_renders", action="store_true", help="Save per-frame regression/side/all overlay PNGs (slow; off by default).")
     args = parser.parse_args()
 
     input_dir = args.input_dir
     opt_weight = args.opt_weight
+    opt_cfg = OptConfig(
+        xatol=args.opt_xatol,
+        maxiter=args.opt_maxiter,
+        disp=args.opt_disp,
+        save_debug_renders=args.save_debug_renders,
+    )
     
     # Check if the input directory exists and is a valid directory
     if not os.path.isdir(input_dir):
@@ -527,7 +548,7 @@ if __name__ == "__main__":
         if not image_files:
             raise Exception(f"No image files found in the directory '{input_dir}'.")
         else:
-            hand_info_extractor = HandInfoExtractor()
+            hand_info_extractor = HandInfoExtractor(opt_cfg=opt_cfg)
 
             image_files = sorted(image_files, key=lambda x: int(re.search(r'\d+', x).group()))
 
