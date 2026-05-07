@@ -5,6 +5,7 @@
 #----------------------------------------------------------------------------------------------------
 
 import os
+import time
 import torch
 import hydra
 import logging
@@ -479,6 +480,99 @@ class SAM2VideoPredictor(ObjectPredictor):
             # print(f"Binary mask saved successfully at {save_path}")
         except Exception as e:
             print(f"Error saving binary mask: {e}")
+
+    def propagate_masks_and_save_multi(self, video_dir, bboxes, vis_frame_stride=1, save_output=True, save_traj_overlay=False):
+        """
+        Propagate multiple bounding-box segmentations across the entire video in a SINGLE
+        SAM2 inference pass (one init_state load, one propagation loop), instead of looping
+        the single-bbox call N times.
+
+        When N == 1 this matches propagate_masks_and_save's output. When N > 1 each object's
+        masks are written to obj_masks/ as obj{i}_<frame>.png to avoid filename collisions.
+
+        Parameters:
+        - video_dir: Path to the video frames directory.
+        - bboxes: list/array of [x_min, y_min, x_max, y_max].
+        - vis_frame_stride: stride for the optional trajectory overlay.
+        - save_output: If True, saves the binary obj_masks (default True).
+        - save_traj_overlay: If True, also saves matplotlib overlay PNGs (slow; default False).
+        """
+        if len(bboxes) == 0:
+            return [], {}
+
+        try:
+            t0 = time.time()
+            with torch.inference_mode(), torch.autocast(self.device):
+                # Initialize inference state ONCE for all bboxes — this is the big win.
+                inference_state = self.predictor.init_state(video_path=video_dir)
+                self.predictor.reset_state(inference_state)
+                t_init = time.time()
+
+                frame_names = self.load_frames_from_directory(video_dir)
+
+                # Add every bbox as its own object id on frame 0 before propagating.
+                for i, bbox in enumerate(bboxes):
+                    self.predictor.add_new_points_or_box(
+                        inference_state=inference_state,
+                        frame_idx=0,
+                        obj_id=i + 1,
+                        box=bbox,
+                    )
+
+                if save_output:
+                    out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
+                    output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
+                    masks_dir = os.path.join(output_dir, "obj_masks")
+                    os.makedirs(masks_dir, exist_ok=True)
+                    if save_traj_overlay:
+                        traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
+                        os.makedirs(traj_overlayed_dir, exist_ok=True)
+
+                fig = ax = None
+                if save_output and save_traj_overlay:
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    ax.set_axis_off()
+
+                video_segments = {}
+                # Single propagation pass yields all object ids per frame.
+                for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
+                    out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
+                    per_frame = {}
+                    for j, obj_id in enumerate(out_obj_ids):
+                        mask = (out_mask_logits[j] > 0.0).cpu().numpy()
+                        per_frame[int(obj_id)] = mask
+                        if save_output:
+                            mask_fname = (
+                                out_file_name if len(bboxes) == 1
+                                else f"obj{int(obj_id)}_{out_file_name}"
+                            )
+                            self.save_binary_mask_with_pil(mask[0], os.path.join(masks_dir, mask_fname))
+                    video_segments[out_frame_idx] = per_frame
+
+                    if save_output and save_traj_overlay:
+                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                        ax.clear()
+                        ax.set_axis_off()
+                        ax.set_title(f"Frame {out_frame_idx}")
+                        ax.imshow(PILImg.open(img_path))
+                        for obj_id, mask in per_frame.items():
+                            self.show_mask(mask, ax, obj_id=obj_id)
+                        fig.savefig(os.path.join(traj_overlayed_dir, out_file_name))
+
+                if fig is not None:
+                    plt.close(fig)
+
+                t_done = time.time()
+                logging.info(
+                    f"[samv2] {len(bboxes)} obj(s) x {len(frame_names)} frames: "
+                    f"init={t_init-t0:.2f}s propagate+save={t_done-t_init:.2f}s total={t_done-t0:.2f}s"
+                )
+
+        except Exception as e:
+            logging.error(f"Error during multi-bbox mask propagation: {e}")
+            raise
+
+        return frame_names, video_segments
 
     def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True, save_traj_overlay=False):
         """

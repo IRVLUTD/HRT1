@@ -89,28 +89,26 @@ def main(argv):
         )
         initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
 
-        # Track each bounding box across frames
+        # Track ALL bounding boxes across frames in a single SAM2 inference pass.
         if len(initial_bboxes) > 0:
             logging.info(
                 f"Detected {len(initial_bboxes)} bounding boxes in the first frame"
             )
 
-            # Process each bounding box
-            for i, bbox in enumerate(initial_bboxes):
-                # Convert bbox to [x_min, y_min, x_max, y_max] format
-                x_min, y_min, x_max, y_max = gdino.bbox_to_scaled_xyxy(
-                    bbox, *first_frame.size
-                )
-                bbox_array = np.array([x_min, y_min, x_max, y_max])
+            bbox_arrays = [
+                np.array(gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size))
+                for bbox in initial_bboxes
+            ]
 
-                logging.info(f"SAM2: Track bounding box {i+1} across all frames")
-                # Track and propagate the bounding box across frames with the specified save interval
-                frame_names, video_segments = sam2.propagate_masks_and_save(
-                    video_dir,
-                    bbox_array,
-                    save_interval,
-                    save_traj_overlay=FLAGS.save_traj_overlay,
-                )
+            logging.info(
+                f"SAM2: Track {len(bbox_arrays)} bounding box(es) across all frames in one pass"
+            )
+            frame_names, video_segments = sam2.propagate_masks_and_save_multi(
+                video_dir,
+                bbox_arrays,
+                save_interval,
+                save_traj_overlay=FLAGS.save_traj_overlay,
+            )
 
             logging.info("Tracking complete for all bounding boxes")
         else:
