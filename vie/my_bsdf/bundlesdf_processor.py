@@ -36,7 +36,8 @@ import yaml as pyyaml
 
 class BundleSDFProcessor:
     def __init__(
-        self, video_dir, out_folder, use_segmenter, use_gui, stride, debug_level, K
+        self, video_dir, out_folder, use_segmenter, use_gui, stride, debug_level, K,
+        n_step=None,
     ):
         self.video_dir = video_dir
         self.out_folder = out_folder
@@ -45,6 +46,7 @@ class BundleSDFProcessor:
         self.stride = stride
         self.debug_level = debug_level
         self.K = K
+        self.n_step = n_step  # If set, overrides config.yml's n_step for NeRF training.
         self.bundle_sdf_dir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "BundleSDF"
         )
@@ -102,6 +104,8 @@ class BundleSDFProcessor:
         cfg_nerf["down_scale_ratio"] = 1
         cfg_nerf["fs_sdf"] = 0.1
         cfg_nerf["far"] = cfg_bundletrack["depth_processing"]["zfar"]
+        if self.n_step is not None:
+            cfg_nerf["n_step"] = int(self.n_step)
         cfg_nerf["datadir"] = (
             f"{cfg_bundletrack['debug_dir']}/nerf_with_bundletrack_online"
         )

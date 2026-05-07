@@ -127,6 +127,13 @@ def main():
         "--rollout_frames", type=int, default=5, help="Number of frames to collect"
     )
     parser.add_argument(
+        "--n_step",
+        type=int,
+        default=None,
+        help="Override BundleSDF NeRF n_step (defaults to config.yml = 10). "
+             "Lower values (3-5) trade reconstruction quality for speed.",
+    )
+    parser.add_argument(
         "--camera",
         type=str,
         default="Fetch",
@@ -366,6 +373,7 @@ def main():
             stride=args.stride,
             debug_level=args.debug_level,
             K=K,
+            n_step=args.n_step,
         )
         try:
             process_time = processor.process(
