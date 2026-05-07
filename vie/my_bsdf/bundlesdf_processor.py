@@ -148,9 +148,22 @@ class BundleSDFProcessor:
         os.makedirs(ob_in_cam_dir, exist_ok=True)
         os.makedirs(pose_overlayed_rgb_dir, exist_ok=True)
 
-        for i in range(0, len(reader.color_files), self.stride):
+        # Pre-cache all masks into RAM in one pass when not using a live segmenter.
+        # Mask files are small (~tens of KB) and reading them inside the hot loop
+        # adds disk-seek latency for no benefit. With ~hundreds of frames this is
+        # at most a few MB of memory.
+        mask_cache = None
+        if segmenter is None:
+            mask_cache = []
+            for i in range(0, len(reader.color_files), self.stride):
+                m = reader.get_mask(i)
+                mask_cache.append((i, m))
+
+        frame_times = []
+        for cache_idx, i in enumerate(range(0, len(reader.color_files), self.stride)):
             if rospy.is_shutdown():
                 break
+            t_frame = time.time()
             color_file = reader.color_files[i]
             color = cv2.imread(color_file)
             H0, W0 = color.shape[:2]
@@ -158,17 +171,11 @@ class BundleSDFProcessor:
             H, W = depth.shape[:2]
             color = cv2.resize(color, (W, H), interpolation=cv2.INTER_NEAREST)
             depth = cv2.resize(depth, (W, H), interpolation=cv2.INTER_NEAREST)
-            if i == 0:
-                mask = reader.get_mask(0)
-                mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
-                if segmenter:
-                    mask = segmenter.run(color_file.replace("rgb", "masks"))
+            if segmenter:
+                mask = segmenter.run(color_file.replace("rgb", "masks"))
             else:
-                if segmenter:
-                    mask = segmenter.run(color_file.replace("rgb", "masks"))
-                else:
-                    mask = reader.get_mask(i)
-                    mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
+                _, mask = mask_cache[cache_idx]
+                mask = cv2.resize(mask, (W, H), interpolation=cv2.INTER_NEAREST)
             if cfg_bundletrack["erode_mask"] > 0:
                 kernel = np.ones(
                     (cfg_bundletrack["erode_mask"], cfg_bundletrack["erode_mask"]),
@@ -223,6 +230,7 @@ class BundleSDFProcessor:
             PILImg.fromarray(row1_rgb).save(
                 os.path.join(pose_overlayed_rgb_dir, f"{_filename}.png")
             )
+            frame_times.append(time.time() - t_frame)
 
         # cue (jishnu): uncomment to publish the first frame pose and ob_in_cam
         # pub = rospy.Publisher("/bundleSDF/poses", Float64MultiArray, queue_size=10)
@@ -237,4 +245,10 @@ class BundleSDFProcessor:
         tracker.on_finish()
         self.keep_relevant_files()
         process_time = time.time() - start_time
+        if frame_times:
+            avg = sum(frame_times) / len(frame_times)
+            print(
+                f"[bundlesdf] processed {len(frame_times)} frames | "
+                f"avg {avg*1000:.1f} ms/frame | total {process_time:.1f}s"
+            )
         return process_time

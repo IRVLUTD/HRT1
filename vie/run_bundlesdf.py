@@ -129,9 +129,10 @@ def main():
     parser.add_argument(
         "--n_step",
         type=int,
-        default=None,
-        help="Override BundleSDF NeRF n_step (defaults to config.yml = 10). "
-             "Lower values (3-5) trade reconstruction quality for speed.",
+        default=5,
+        help="BundleSDF NeRF training steps per keyframe trigger. "
+             "Default 5 (was 10 from config.yml); raise to 10 if reconstruction "
+             "quality regresses.",
     )
     parser.add_argument(
         "--camera",
