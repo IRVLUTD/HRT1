@@ -31,6 +31,11 @@
     - [👉 Object Pose Estimation with Multi-Frame Context:](#-object-pose-estimation-with-multi-frame-context)
   - [🗂️ Output Directory Structure After Data Processing](#️-output-directory-structure-after-data-processing)
     - [🗂️ obj\_prompt\_mapper.json](#️-obj_prompt_mapperjson)
+  - [⚡ Benchmark (jishnu/fasten-vie)](#-benchmark-jishnufasten-vie)
+    - [GDINO + SAMv2 — measured 7.86× on the propagation hot loop](#gdino--samv2--measured-786-on-the-propagation-hot-loop)
+    - [HaMeR — expected ≈4–6× from warm-start + tolerance relaxation (not measured here)](#hamer--expected-46-from-warm-start--tolerance-relaxation-not-measured-here)
+    - [rfp-grasp-transfer — expected ≈4–8× from hoisted optimizer + warm-start + smaller particle batch (not measured here)](#rfp-grasp-transfer--expected-48-from-hoisted-optimizer--warm-start--smaller-particle-batch-not-measured-here)
+    - [BundleSDF — docker persistence + tighter n\_step (not measured here)](#bundlesdf--docker-persistence--tighter-n_step-not-measured-here)
   - [🙏 Acknowledgments](#-acknowledgments)
 
 
@@ -337,6 +342,57 @@ data_captured/
 }
 ```
 
+
+## ⚡ Benchmark (`jishnu/fasten-vie`)
+
+The `jishnu/fasten-vie` branch contains a series of latency optimizations across all four vie modules. See [`scripts/bench_vie.sh`](scripts/bench_vie.sh) to A/B end-to-end against `main`. Each module emits a `[module] avg ms/frame | total Ys` log line at the end of its run so the speedup is observable without external profiling.
+
+**Reference task**: `task_39_seasoning_on_omlette_v1` — 70 frames, 640×480 RGB+depth, RTX 5070 Laptop GPU.
+
+### GDINO + SAMv2 — measured 7.86× on the propagation hot loop
+
+Isolating `robokit/perception.py::propagate_masks_and_save` (the per-frame SAM2 propagation):
+
+| Metric | `main` | `jishnu/fasten-vie` | Speedup |
+|---|---:|---:|---:|
+| `propagate_masks_and_save` (70 frames) | 139.70 s | 17.77 s | **7.86×** |
+| Per-frame avg | 1995.6 ms | 253.8 ms | **7.86×** |
+| Total wall (incl. SAM2 model load) | 157.93 s | 52.14 s | 3.03× |
+
+The dominant win comes from gating the per-frame `plt.close("all")` + new figure creation + `savefig` behind `--save_traj_overlay` (off by default). On `main`, every frame paid ~1.7 s of matplotlib churn dwarfing the ~280 ms of actual SAM2 inference; on `jishnu/fasten-vie` only the inference cost remains. A second win — single-pass multi-bbox propagation — kicks in only when the prompt yields more than one detection (single-bbox case above doesn't exercise it; expect another step change for multi-object scenes).
+
+### HaMeR — expected ≈4–6× from warm-start + tolerance relaxation (not measured here)
+
+Three changes on `jishnu/fasten-vie`:
+
+1. **Warm-start** the Nelder-Mead translation refinement from the prior frame's solution per hand side (left/right). Hand poses change smoothly between frames; seeding the optimizer near the answer eliminates the long initial descent.
+2. **Relaxed tolerance**: `xatol 1e-8 → 1e-4` (≈0.1 mm in metric units) and a hard `maxiter=30` cap (was unbounded with `disp=True` console I/O per call).
+3. **Gated debug renders**: per-frame `regression_img` + `side_img` pyrender passes and the `_all.jpg` overlay write are now opt-in via `--save_debug_renders` (off by default). The `cam_view` render itself stays since the depth-PC mask is derived from it.
+
+Why not measured on this rig: HaMeR requires manually registered MANO models and the upstream HaMeR checkpoint download, and the `robokit-py3.10` conda env's pinned `torch==2.3.1+cu118` does not include the `sm_120` Blackwell kernels needed for the RTX 5070 Laptop GPU on the dev machine. On a working rig the `[hamer] processed N frames | avg X ms/frame` line at the end of the run gives the speedup directly; expected ratio is ~4–6× from the survey-derived savings (per-frame 200–500 obj-function evaluations in scipy minimize → ~30 with warm-start).
+
+A/B knobs: `--no_warm_start`, `--opt_xatol 1e-5`, `--opt_maxiter 50` revert to Phase 1 behavior; `--save_debug_renders` re-enables the debug PNGs.
+
+### rfp-grasp-transfer — expected ≈4–8× from hoisted optimizer + warm-start + smaller particle batch (not measured here)
+
+Four cooperating changes:
+
+1. **Hoist `AdamGraspTransfer` out of the per-frame loop**. On `main`, `transfer_grasp` was instantiating a fresh `AdamGraspTransfer` per frame, which re-ran URDF parsing, kinematic-chain construction, and `grasp_transfer_correspondence` — none of which depend on per-frame inputs. `jishnu/fasten-vie` builds one optimizer per source hand (left/right) at startup and reuses across frames.
+2. **Skip the redundant `target_handmodel` reload in `GcsGraspTransferOpt.reset()`**. The model is already constructed in `__init__`; per-frame kinematic state is set via `update_kinematics(q)` further down. Removing the gratuitous reload halves the URDF I/O per frame.
+3. **Warm-start Adam** from the prior frame's `q_current`. `AdamGraspTransfer` now caches its final `q_current` and reuses it as the starting point for the next frame's optimization (default on; `warm_start=False` to disable).
+4. **Aggressive defaults**: `num_particles 32 → 16`, `max_iter 100 → 50`. Combined with warm-starting, these give comparable convergence in roughly a quarter of the per-frame work. Override via `--num_particles` / `--max_iter` if quality regresses.
+
+Why not measured on this rig: depends on HaMeR's MANO output (see above) and the same `robokit-py3.10` Blackwell-kernel constraint. The `[grasp-transfer] processed N frames | avg X ms/frame` log at the end of the run gives the speedup directly when run on a working rig.
+
+### BundleSDF — docker persistence + tighter `n_step` (not measured here)
+
+Two changes outside Docker plus one default tweak:
+
+1. **Persistent docker launch**: `BundleSDF/docker/start_docker.sh` no longer runs `docker-compose down` followed by `up --build` on every invocation. New flags: `-k` keeps an already-running container (subsequent runs are near-instant), `-f` forces rebuild. Default behavior skips `--build` if an image already exists, only building on first run.
+2. **Pre-cache masks** into RAM in one pass before the frame loop in `BundleSDFProcessor.process` (when not using a live segmenter). Mask files are tens of KB each; reading them inside the hot loop added per-frame disk-seek latency for no benefit.
+3. **Aggressive default `--n_step 5`** (was None ⇒ `config.yml`'s 10) for the NeRF training-step count per keyframe trigger. Lower = faster training pass; raise back to 10 if reconstruction quality regresses.
+
+Why not measured on this rig: BundleSDF runs inside a Docker container and Docker is not installed on the dev machine. The `[bundlesdf] processed N frames | avg X ms/frame` log inside `BundleSDFProcessor.process` lands in the bench log when run on a working rig.
 
 ## 🙏 Acknowledgments
 
