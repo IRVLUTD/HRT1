@@ -55,6 +55,11 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("input_dir", None, "Directory path to input video frames")
 flags.DEFINE_string("text_prompt", None, "Text prompt for initial object detection")
 flags.DEFINE_integer("save_interval", 1, "Interval for saving tracked frames")
+flags.DEFINE_boolean(
+    "save_traj_overlay",
+    False,
+    "Also save matplotlib trajectory-overlay PNGs (slow; off by default).",
+)
 
 
 def main(argv):
@@ -101,7 +106,10 @@ def main(argv):
                 logging.info(f"SAM2: Track bounding box {i+1} across all frames")
                 # Track and propagate the bounding box across frames with the specified save interval
                 frame_names, video_segments = sam2.propagate_masks_and_save(
-                    video_dir, bbox_array, save_interval
+                    video_dir,
+                    bbox_array,
+                    save_interval,
+                    save_traj_overlay=FLAGS.save_traj_overlay,
                 )
 
             logging.info("Tracking complete for all bounding boxes")

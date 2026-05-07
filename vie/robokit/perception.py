@@ -480,25 +480,26 @@ class SAM2VideoPredictor(ObjectPredictor):
         except Exception as e:
             print(f"Error saving binary mask: {e}")
 
-    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True):
+    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True, save_traj_overlay=False):
         """
         Propagate the segmentation mask across the entire video and optionally save the frames with masks to a subdirectory.
-        
+
         Parameters:
         - video_dir: Path to the video frames directory.
         - bbox: The bounding box [x_min, y_min, x_max, y_max] for initial segmentation.
         - vis_frame_stride: Number of frames to skip while visualizing the segmentation (default is 30).
-        - save_output: If True, saves the segmented frames (default is True).
+        - save_output: If True, saves the binary obj_masks (default is True).
+        - save_traj_overlay: If True, also saves the matplotlib trajectory-overlay PNGs (slow; default False).
         """
         try:
             with torch.inference_mode(), torch.autocast(self.device):
                 # Initialize inference state
                 inference_state = self.predictor.init_state(video_path=video_dir)
                 self.predictor.reset_state(inference_state)
-                
+
                 # Get all frames from the directory
                 frame_names = self.load_frames_from_directory(video_dir)
-                
+
                 # Segment first frame
                 frame_idx = 0
                 _, out_obj_ids, out_mask_logits = self.predictor.add_new_points_or_box(
@@ -507,67 +508,73 @@ class SAM2VideoPredictor(ObjectPredictor):
                     obj_id=1,
                     box=bbox
                 )
-                
+
                 # Create output directory if save_output is True
                 if save_output:
                     out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
                     output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
                     masks_dir = os.path.join(output_dir, "obj_masks")
-                    traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
                     os.makedirs(masks_dir, exist_ok=True)
-                    os.makedirs(traj_overlayed_dir, exist_ok=True)
+                    if save_traj_overlay:
+                        traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
+                        os.makedirs(traj_overlayed_dir, exist_ok=True)
 
-                # Initialize trajectory list
-                centroids = []
-                
+                # Reuse a single matplotlib figure across frames when overlay saving is on.
+                fig = ax = bg_img_artist = bbox_patch = None
+                centroid_xs, centroid_ys = [], []
+                if save_output and save_traj_overlay:
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    ax.set_axis_off()
+                    bbox_patch = plt.Rectangle(
+                        (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1],
+                        linewidth=2, edgecolor="cyan", facecolor="none")
+                    ax.add_patch(bbox_patch)
+                    colormap = cm.get_cmap("autumn")
+
                 # Propagate mask across video
                 video_segments = {}
                 for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
                     for i, out_obj_id in enumerate(out_obj_ids):
-                        video_segments[out_frame_idx] = {out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()}
-                        # logging.info("Visualize and optionally save the results")
-                        plt.close("all")
-                
-                        plt.figure(figsize=(6, 4))
-                        plt.title(f"Frame {out_frame_idx}")
-                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
-                        img = PILImg.open(img_path)
-                        plt.imshow(img)
-                        
-                        # Draw bounding box
-                        plt.gca().add_patch(plt.Rectangle(
-                            (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
-                            linewidth=2, edgecolor="cyan", facecolor="none"))
-                        
+                        out_mask = (out_mask_logits[i] > 0.0).cpu().numpy()
+                        video_segments[out_frame_idx] = {out_obj_id: out_mask}
                         out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
-                        
-                        # Show segmentation masks
-                        for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                            self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
-                            
-                            # assumption only one object exists
+
+                        # Fast path: only save the binary mask (the actually-needed downstream output).
+                        if save_output:
                             self.save_binary_mask_with_pil(out_mask[0], os.path.join(masks_dir, out_file_name))
 
-                            centroid =  self.calculate_centroid(out_mask)
-                            centroids.append(centroid)
+                        if not (save_output and save_traj_overlay):
+                            continue
 
-                            # Plot the tracklet with centroids
-                            num_centroids = len(centroids)
-                            colormap = cm.get_cmap("autumn")  # Choose a colormap
-                            
-                            for idx, (x, y) in enumerate(centroids):
-                                color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
-                                plt.plot(x, y, 'o', color=color, markersize=3)
-                            
-                            # Disable axis numbers and ticks
-                            plt.axis('off')
-                            
-                            # Save the trajectory overlayed image if save_output is True
-                            if save_output:
-                                traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
-                                plt.savefig(traj_result_path)
-                                plt.close()
-            
+                        # Slow path: matplotlib overlay for debugging. Reuse the figure/axes.
+                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                        img = PILImg.open(img_path)
+                        if bg_img_artist is None:
+                            bg_img_artist = ax.imshow(img)
+                        else:
+                            bg_img_artist.set_data(img)
+                        ax.set_title(f"Frame {out_frame_idx}")
+                        # Draw current-frame mask via show_mask. (Each call adds an imshow layer;
+                        # pruning prior mask layers keeps the figure cheap.)
+                        while len(ax.images) > 1:
+                            ax.images[-1].remove()
+                        self.show_mask(out_mask, ax, obj_id=out_obj_id)
+
+                        # Append latest centroid; replot trajectory line incrementally.
+                        cx, cy = self.calculate_centroid(out_mask)
+                        centroid_xs.append(cx)
+                        centroid_ys.append(cy)
+                        # Recolor the most-recent point only (older points keep their colors).
+                        ax.plot(cx, cy, 'o',
+                                color=colormap(min(1.0, len(centroid_xs) / 100.0)),
+                                markersize=3)
+
+                        traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
+                        fig.savefig(traj_result_path)
+
+                if fig is not None:
+                    plt.close(fig)
+
         except Exception as e:
             logging.error(f"Error during mask propagation: {e}")
 
