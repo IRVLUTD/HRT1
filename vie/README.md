@@ -381,6 +381,10 @@ A/B knobs: `--no_warm_start`, `--opt_xatol 1e-5`, `--opt_maxiter 50` revert to P
 
 > The full HaMeR pipeline also runs ViTDet + ViTPose + the HaMeR transformer per frame; those costs are unchanged. The 6.49× above applies to the scipy-minimize stage, which the survey identified as the dominant single contributor.
 
+**Phase 4 additions (code-only on this rig)**:
+- `fp16` autocast wraps the HaMeR transformer forward pass on CUDA (`torch.amp.autocast(dtype=torch.float16)`). Default on; disable with `--no_fp16`. Expected ~1.5–2× on the model fwd; not measured here because MANO models + the robokit env's Blackwell-incompatible torch block running the full pipeline locally.
+- **Investigated and rejected** `scipy.spatial.cKDTree` as a drop-in for `sklearn.neighbors.KDTree` in `hamer/mesh_to_sdf/rgbd2pc.py`. Bench ran 17+ min vs sklearn's 4 min before being killed — cKDTree is slower for this query pattern (777 verts × ~300k depth points × 138 queries per minimize call). Sticking with sklearn KDTree.
+
 ### rfp-grasp-transfer — measured ≈1.5× on a noisy CPU bench (larger expected on GPU)
 
 Four cooperating changes (one of which had to be reverted — see below):
@@ -399,6 +403,13 @@ Apples-to-apples bench with each branch's *as-shipped* CLI defaults, 30 syntheti
 | **Speedup** | | **≈1.5×** | |
 
 Smaller than the survey-derived "expected ≈4–8×" estimate. Reasons: the CPU bench is thermal-noisy (1083/870/1163 ms/frame across 3 trials), and the per-frame fixed cost (URDF reload in `reset()`, ~tens of ms) doesn't shrink with iter count. On GPU on a real rig — where per-particle-iter cost shrinks more than fixed cost does — the speedup should be substantially larger.
+
+**Phase 4 additions** (committed in `IRVLUTD/rfp-grasp-transfer@jishnu/fasten-vie` and bumped in the parent submodule pointer):
+
+- **Cache `grasp_transfer_correspondence`**: the source ↔ target gripper-coord correspondence is a deterministic function of two static tensors (one per source robot, one per target robot, both loaded once from pickle). Previously every `reset()` recomputed an O(M·N) spherical-distance matrix between source/target gripper coords. Now computed once on first `reset()` and reused.
+- **Jittered particle init from prior best**: the Phase 2 warm-start copied the prior frame's `q_current` verbatim (carrying both good and bad particles). Phase 4 picks the lowest-energy particle from the prior frame, replicates it across all `num_particles`, and adds Gaussian jitter (σ=0.02) to all but particle 0 (which keeps the exact warm-start). Converges to lower final energy in fewer effective iters.
+
+CPU re-bench after Phase 4: ~870–1006 ms/frame (within Phase 3 noise; the wins are mostly in convergence quality at fixed `max_iter`, not raw wall-time). On GPU + with longer trajectories the spherical-distance cache and jittered init should compound more visibly.
 
 ### BundleSDF — docker persistence + tighter `n_step` (not measured here)
 
