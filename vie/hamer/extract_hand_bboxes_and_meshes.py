@@ -59,10 +59,14 @@ class ExtractorOutput:
 
 @dataclass
 class OptConfig:
-    xatol: float = 1e-5
-    maxiter: int = 50
+    # Aggressive defaults: typical hand poses change smoothly between frames so
+    # warm-starting from the previous solution converges in a few dozen Nelder-Mead
+    # steps to ~mm-scale accuracy. xatol=1e-4 corresponds to ~0.1 mm in metric units.
+    xatol: float = 1e-4
+    maxiter: int = 30
     disp: bool = False
     save_debug_renders: bool = False
+    warm_start: bool = True
 
 
 def load_depth_img(img_path):
@@ -185,6 +189,10 @@ class HandInfoExtractor:
         self.renderer = Renderer(self.model_cfg, faces=self.model.mano.faces)
         self.rescale_factor = rescale_factor
         self.opt_cfg = opt_cfg or OptConfig()
+        # Warm-start cache: previous frame's optimized translation, keyed by hand side
+        # (0 = left, 1 = right). Hand poses change smoothly so this seeds the
+        # Nelder-Mead near the answer and lets us drop maxiter aggressively.
+        self._last_opt_translation: dict = {}
 
     def _initialize_detector(self, body_detector: str):
         from hamer.utils.utils_detectron2 import DefaultPredictor_Lazy
@@ -458,10 +466,17 @@ class HandInfoExtractor:
                 'disp': self.opt_cfg.disp,
             }
             for i in range(len(all_verts)):
-                res = minimize(obj_function, x0, method='nelder-mead',
+                hand_side = int(all_right[i])  # 0 left, 1 right
+                if self.opt_cfg.warm_start and hand_side in self._last_opt_translation:
+                    x0_i = self._last_opt_translation[hand_side]
+                else:
+                    x0_i = x0
+                res = minimize(obj_function, x0_i, method='nelder-mead',
                             args=(all_verts[i], all_cam_t[i], K, intrinsic_matrix, depth_pc.kd_tree, opt_weight), options=opt_options)
                 translation_new = res.x
                 out['opt_translation'].append(translation_new)
+                if self.opt_cfg.warm_start:
+                    self._last_opt_translation[hand_side] = translation_new
             
             out['opt_translation'] = np.asarray(out['opt_translation']) 
         
@@ -522,10 +537,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images for hand mesh bounding box extraction.")
     parser.add_argument("--input_dir", type=str, required=True, help="Directory containing images.")
     parser.add_argument("--opt_weight", type=float, default=100.0, help="weight for hamer hand mesh optimization with depth")
-    parser.add_argument("--opt_xatol", type=float, default=1e-5, help="Nelder-Mead xatol convergence tolerance (was 1e-8; relax for speed).")
-    parser.add_argument("--opt_maxiter", type=int, default=50, help="Nelder-Mead max iterations (was unlimited).")
+    parser.add_argument("--opt_xatol", type=float, default=1e-4, help="Nelder-Mead xatol convergence tolerance (was 1e-8 hardcoded).")
+    parser.add_argument("--opt_maxiter", type=int, default=30, help="Nelder-Mead max iterations.")
     parser.add_argument("--opt_disp", action="store_true", help="Print scipy minimize convergence info per call (slow).")
     parser.add_argument("--save_debug_renders", action="store_true", help="Save per-frame regression/side/all overlay PNGs (slow; off by default).")
+    parser.add_argument("--no_warm_start", action="store_true", help="Disable warm-starting Nelder-Mead from prior frame's translation (per hand side).")
     args = parser.parse_args()
 
     input_dir = args.input_dir
@@ -535,6 +551,7 @@ if __name__ == "__main__":
         maxiter=args.opt_maxiter,
         disp=args.opt_disp,
         save_debug_renders=args.save_debug_renders,
+        warm_start=not args.no_warm_start,
     )
     
     # Check if the input directory exists and is a valid directory
@@ -552,14 +569,23 @@ if __name__ == "__main__":
 
             image_files = sorted(image_files, key=lambda x: int(re.search(r'\d+', x).group()))
 
-            # Process each image file
+            # Per-frame timing rolling stats — emit a summary at the end so users see
+            # whether warm_start + relaxed tolerance paid off without grepping through
+            # tqdm output.
+            import time as _time
+            frame_times = []
+
             for img_file in tqdm(image_files):
                 img_path = os.path.join(input_dir, img_file)
-                
-                logging.info("Starting extraction...")
+
+                t_frame = _time.time()
                 try:
                     result = hand_info_extractor.extract_info(img_path, opt_weight=opt_weight, save_mesh=True)
+                    frame_times.append(_time.time() - t_frame)
                 except Exception as e:
                     print(f"Skipping...:{e}")
                     continue
-                logging.info("Extraction completed.")
+
+            if frame_times:
+                avg = sum(frame_times) / len(frame_times)
+                print(f"[hamer] processed {len(frame_times)} frames | avg {avg*1000:.1f} ms/frame | total {sum(frame_times):.1f}s")
