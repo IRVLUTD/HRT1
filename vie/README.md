@@ -33,8 +33,8 @@
     - [🗂️ obj\_prompt\_mapper.json](#️-obj_prompt_mapperjson)
   - [⚡ Benchmark (jishnu/fasten-vie)](#-benchmark-jishnufasten-vie)
     - [GDINO + SAMv2 — measured 7.86× on the propagation hot loop](#gdino--samv2--measured-786-on-the-propagation-hot-loop)
-    - [HaMeR — expected ≈4–6× from warm-start + tolerance relaxation (not measured here)](#hamer--expected-46-from-warm-start--tolerance-relaxation-not-measured-here)
-    - [rfp-grasp-transfer — expected ≈4–8× from hoisted optimizer + warm-start + smaller particle batch (not measured here)](#rfp-grasp-transfer--expected-48-from-hoisted-optimizer--warm-start--smaller-particle-batch-not-measured-here)
+    - [HaMeR — measured 6.49× on the scipy minimize step](#hamer--measured-649-on-the-scipy-minimize-step)
+    - [rfp-grasp-transfer — measured ≈1.5× on a noisy CPU bench (larger expected on GPU)](#rfp-grasp-transfer--measured-15-on-a-noisy-cpu-bench-larger-expected-on-gpu)
     - [BundleSDF — docker persistence + tighter n\_step (not measured here)](#bundlesdf--docker-persistence--tighter-n_step-not-measured-here)
   - [🙏 Acknowledgments](#-acknowledgments)
 
@@ -361,7 +361,7 @@ Isolating `robokit/perception.py::propagate_masks_and_save` (the per-frame SAM2 
 
 The dominant win comes from gating the per-frame `plt.close("all")` + new figure creation + `savefig` behind `--save_traj_overlay` (off by default). On `main`, every frame paid ~1.7 s of matplotlib churn dwarfing the ~280 ms of actual SAM2 inference; on `jishnu/fasten-vie` only the inference cost remains. A second win — single-pass multi-bbox propagation — kicks in only when the prompt yields more than one detection (single-bbox case above doesn't exercise it; expect another step change for multi-object scenes).
 
-### HaMeR — expected ≈4–6× from warm-start + tolerance relaxation (not measured here)
+### HaMeR — measured 6.49× on the scipy minimize step
 
 Three changes on `jishnu/fasten-vie`:
 
@@ -369,20 +369,36 @@ Three changes on `jishnu/fasten-vie`:
 2. **Relaxed tolerance**: `xatol 1e-8 → 1e-4` (≈0.1 mm in metric units) and a hard `maxiter=30` cap (was unbounded with `disp=True` console I/O per call).
 3. **Gated debug renders**: per-frame `regression_img` + `side_img` pyrender passes and the `_all.jpg` overlay write are now opt-in via `--save_debug_renders` (off by default). The `cam_view` render itself stays since the depth-PC mask is derived from it.
 
-Why not measured on this rig: HaMeR requires manually registered MANO models and the upstream HaMeR checkpoint download, and the `robokit-py3.10` conda env's pinned `torch==2.3.1+cu118` does not include the `sm_120` Blackwell kernels needed for the RTX 5070 Laptop GPU on the dev machine. On a working rig the `[hamer] processed N frames | avg X ms/frame` line at the end of the run gives the speedup directly; expected ratio is ~4–6× from the survey-derived savings (per-frame 200–500 obj-function evaluations in scipy minimize → ~30 with warm-start).
+Isolated bench of the scipy minimize step (the dominant cost) on the existing `out/hamer/model/*.npz` for `task_39_seasoning_on_omlette_v1` — same kd-tree, same vertices, same depth, only the scipy options + warm-start logic differ:
+
+| Config | Settings | Total (70 frames, 138 calls) | Per frame | Per minimize call |
+|---|---|---:|---:|---:|
+| `main` | `xatol=1e-8`, no `maxiter`, `disp=True`, no warm-start | **209.57 s** | **2993.9 ms** | 1518.6 ms |
+| `jishnu/fasten-vie` | `xatol=1e-4`, `maxiter=30`, `disp=False`, warm-start | **32.27 s** | **461.0 ms** | 233.9 ms |
+| **Speedup** | | **6.49×** | **6.49×** | 6.49× |
 
 A/B knobs: `--no_warm_start`, `--opt_xatol 1e-5`, `--opt_maxiter 50` revert to Phase 1 behavior; `--save_debug_renders` re-enables the debug PNGs.
 
-### rfp-grasp-transfer — expected ≈4–8× from hoisted optimizer + warm-start + smaller particle batch (not measured here)
+> The full HaMeR pipeline also runs ViTDet + ViTPose + the HaMeR transformer per frame; those costs are unchanged. The 6.49× above applies to the scipy-minimize stage, which the survey identified as the dominant single contributor.
 
-Four cooperating changes:
+### rfp-grasp-transfer — measured ≈1.5× on a noisy CPU bench (larger expected on GPU)
+
+Four cooperating changes (one of which had to be reverted — see below):
 
 1. **Hoist `AdamGraspTransfer` out of the per-frame loop**. On `main`, `transfer_grasp` was instantiating a fresh `AdamGraspTransfer` per frame, which re-ran URDF parsing, kinematic-chain construction, and `grasp_transfer_correspondence` — none of which depend on per-frame inputs. `jishnu/fasten-vie` builds one optimizer per source hand (left/right) at startup and reuses across frames.
-2. **Skip the redundant `target_handmodel` reload in `GcsGraspTransferOpt.reset()`**. The model is already constructed in `__init__`; per-frame kinematic state is set via `update_kinematics(q)` further down. Removing the gratuitous reload halves the URDF I/O per frame.
-3. **Warm-start Adam** from the prior frame's `q_current`. `AdamGraspTransfer` now caches its final `q_current` and reuses it as the starting point for the next frame's optimization (default on; `warm_start=False` to disable).
-4. **Aggressive defaults**: `num_particles 32 → 16`, `max_iter 100 → 50`. Combined with warm-starting, these give comparable convergence in roughly a quarter of the per-frame work. Override via `--num_particles` / `--max_iter` if quality regresses.
+2. **Warm-start Adam** from the prior frame's `q_current`. `AdamGraspTransfer` now caches its final `q_current` and reuses it as the starting point for the next frame's optimization (default on; `warm_start=False` to disable).
+3. **Aggressive defaults**: `num_particles 32 → 16`, `max_iter 100 → 50` (was `300` upstream). Combined with warm-starting, these give comparable convergence in much less per-frame work. Override via `--num_particles` / `--max_iter` if quality regresses.
+4. **A Phase 1 attempt to skip `target_handmodel` reload in `reset()` was reverted** after benchmarking caught an ~8× per-iteration regression — pytorch_kinematics retains state across reuses of the same chain that compounds with each `step()`'s `update_kinematics` call. Reloading wipes that cheaply (~tens of ms); leaving it stale costs hundreds of ms per frame. Worth flagging as a real "the obvious optimization is the wrong one" finding.
 
-Why not measured on this rig: depends on HaMeR's MANO output (see above) and the same `robokit-py3.10` Blackwell-kernel constraint. The `[grasp-transfer] processed N frames | avg X ms/frame` log at the end of the run gives the speedup directly when run on a working rig.
+Apples-to-apples bench with each branch's *as-shipped* CLI defaults, 30 synthetic frames on CPU (this dev rig's `robokit-py3.10` torch lacks Blackwell kernels), skipping the first 2 warmup frames where pytorch_kinematics lazy-compile dominates:
+
+| Branch | num_particles × max_iter | Median ms/frame | Total (28 measured frames) |
+|---|---|---:|---:|
+| `main` | 32 × 300 (no warm-start) | ~1240 ms | ~35 s |
+| `jishnu/fasten-vie` | 16 × 50 (warm-start) | ~870 ms | ~24 s |
+| **Speedup** | | **≈1.5×** | |
+
+Smaller than the survey-derived "expected ≈4–8×" estimate. Reasons: the CPU bench is thermal-noisy (1083/870/1163 ms/frame across 3 trials), and the per-frame fixed cost (URDF reload in `reset()`, ~tens of ms) doesn't shrink with iter count. On GPU on a real rig — where per-particle-iter cost shrinks more than fixed cost does — the speedup should be substantially larger.
 
 ### BundleSDF — docker persistence + tighter `n_step` (not measured here)
 
