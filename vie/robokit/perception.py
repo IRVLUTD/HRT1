@@ -20,6 +20,26 @@ import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
+
+# GroundingDINO ships a custom CUDA op (`_C`) for multi-scale deformable
+# attention. Building it requires a CUDA toolchain matching torch's cuda
+# version, which is fragile on Blackwell GPUs / mismatched nvcc versions. If
+# `_C` is missing the model errors at first inference call. setup_vie.sh
+# applies an in-place patch to ms_deform_attn.py that falls back to the
+# pure-PyTorch implementation. This block detects the missing-and-unpatched
+# case and prints an actionable error so users know exactly what to do.
+try:
+    from groundingdino import _C  # noqa: F401
+except Exception:
+    from groundingdino.models.GroundingDINO import ms_deform_attn as _gdino_msda
+    if not getattr(_gdino_msda, "_HAS_C", False):
+        warnings.warn(
+            "GroundingDINO compiled extension `_C` is not available AND the "
+            "in-place fallback patch hasn't been applied. Re-run "
+            "vie/setup_vie.sh to patch ms_deform_attn.py for the pure-PyTorch "
+            "fallback path; otherwise the model will fail at first inference "
+            "call with `name '_C' is not defined`."
+        )
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 from sam2.build_sam import build_sam2_video_predictor

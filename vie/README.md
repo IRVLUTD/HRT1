@@ -31,6 +31,7 @@
     - [👉 Object Pose Estimation with Multi-Frame Context:](#-object-pose-estimation-with-multi-frame-context)
   - [🗂️ Output Directory Structure After Data Processing](#️-output-directory-structure-after-data-processing)
     - [🗂️ obj\_prompt\_mapper.json](#️-obj_prompt_mapperjson)
+  - [⚠️ Install Gotchas](#️-install-gotchas-read-first-if-setup_viesh-is-failing)
   - [⚡ Benchmark (jishnu/fasten-vie)](#-benchmark-jishnufasten-vie)
     - [GDINO + SAMv2 — measured 7.86× on the propagation hot loop](#gdino--samv2--measured-786-on-the-propagation-hot-loop)
     - [HaMeR — measured 6.49× on the scipy minimize step](#hamer--measured-649-on-the-scipy-minimize-step)
@@ -52,6 +53,25 @@ find . -name "__pycache__" -type d -exec rm -rf {} + -o -name "*.egg-info" -type
 chmod +x ./setup_vie.sh
 ./setup_vie.sh
 ```
+
+## ⚠️ Install Gotchas (read first if `setup_vie.sh` is failing)
+
+`setup_vie.sh` now bakes in the workarounds below; this section documents *why* they exist so you can debug a fresh install.
+
+1. **MANO models** (`hamer/_DATA/data/mano/MANO_{LEFT,RIGHT}.pkl`) are license-gated and cannot be auto-installed. Register at https://mano.is.tue.mpg.de/, download `mano_v1_2.zip`, and copy the two `.pkl` files into `hamer/_DATA/data/mano/`.
+
+2. **`mmcv` version pin**: HaMeR's `setup.py` originally pinned `mmcv==1.3.9`, but `mmpose==0.24.0` (its sibling dep) only accepts `mmcv` in `[1.3.8, 1.5.0]`. We've relaxed HaMeR's pin to `>=1.3.8,<=1.5.0`. `setup_vie.sh` installs `mmcv==1.5.0` explicitly, **with `setuptools<70`** since legacy mmcv's `setup.py` imports `pkg_resources` which newer setuptools dropped.
+
+3. **`transformers` version pin**: GroundingDINO at the pinned commit (`2b62f419`) calls `BertModel.get_head_mask`, which `transformers>=5` removed. `requirements.txt` pins `transformers==4.47.1`.
+
+4. **GroundingDINO `_C` extension**: the pip wheel ships no `_C.so` and the source build needs a CUDA toolchain matching torch's cuda version. `setup_vie.sh` patches `groundingdino/models/GroundingDINO/ms_deform_attn.py` in-place to fall back to the pure-PyTorch implementation when `_C` is missing. `robokit/perception.py` warns at import time if both `_C` and the patch are absent.
+
+5. **NumPy 2.x incompatibility**: editable installs can drag in `numpy>=2`, which breaks matplotlib + many c-extensions. `setup_vie.sh` repins `numpy<2` after HaMeR's editable install.
+
+6. **Blackwell GPUs (RTX 50-series, sm_120)**: torch `<=2.4` does not ship sm_120 kernels. If you see `no kernel image is available for execution on the device 'cuda:0'`, bump torch:
+   ```bash
+   pip install --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu130
+   ```
 
 ## 📜 Requirements
 
