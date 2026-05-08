@@ -60,6 +60,12 @@ flags.DEFINE_boolean(
     False,
     "Also save matplotlib trajectory-overlay PNGs (slow; off by default).",
 )
+flags.DEFINE_string(
+    "sam2_size",
+    "large",
+    "SAM2.1 model size variant: large (default, best quality) | base_plus | small | tiny. "
+    "Smaller = faster forward pass; checkpoint auto-downloaded on first use.",
+)
 
 
 def main(argv):
@@ -78,7 +84,7 @@ def main(argv):
         gdino = GroundingDINOObjectPredictor()
 
         # Initialize SAM2 for tracking across frames
-        sam2 = SAM2VideoPredictor(text_prompt)
+        sam2 = SAM2VideoPredictor(text_prompt, model_size=FLAGS.sam2_size)
 
         # Read the first frame to detect initial bounding boxes
         first_frame_path = os.path.join(video_dir, sorted(os.listdir(video_dir))[0])

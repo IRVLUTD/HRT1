@@ -328,12 +328,34 @@ class SAM2VideoPredictor(ObjectPredictor):
     Predictor class for video object segmentation using the SAM2 model.
     Source: https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/notebooks/video_predictor_example.ipynb
     """
-    def __init__(self, text_prompt=None):
-        """
-        Initializes the SAM2VideoPredictor class and attempts to load the model.
+
+    # SAM2.1 model size variants. Profiling on RTX 5070 showed the per-frame
+    # forward pass at ~54 ms with `large`; smaller variants trade some mask
+    # quality for big inference speedups when running on tight VRAM / CPU.
+    _SAM2_MODELS = {
+        "large":     ("configs/sam2.1/sam2.1_hiera_l.yaml",  "sam2.1_hiera_large.pth",     "sam2.1_hiera_large.pt"),
+        "base_plus": ("configs/sam2.1/sam2.1_hiera_b+.yaml", "sam2.1_hiera_base_plus.pth", "sam2.1_hiera_base_plus.pt"),
+        "small":     ("configs/sam2.1/sam2.1_hiera_s.yaml",  "sam2.1_hiera_small.pth",     "sam2.1_hiera_small.pt"),
+        "tiny":      ("configs/sam2.1/sam2.1_hiera_t.yaml",  "sam2.1_hiera_tiny.pth",      "sam2.1_hiera_tiny.pt"),
+    }
+    _SAM2_BASE_URL = "https://dl.fbaipublicfiles.com/segment_anything_2/092824/"
+
+    def __init__(self, text_prompt=None, model_size="large"):
+        """Initialize SAM2 video predictor.
+
+        Args:
+            text_prompt: optional prompt label used to namespace mask output dirs.
+            model_size: 'large' (default, best quality), 'base_plus' (~2x faster),
+                'small' (~3x), 'tiny' (~5x). The checkpoint is auto-downloaded
+                on first use from facebookresearch's CDN.
         """
         super(SAM2VideoPredictor, self).__init__()
-        self.logger = logging.getLogger(__name__)        
+        self.logger = logging.getLogger(__name__)
+        if model_size not in self._SAM2_MODELS:
+            raise ValueError(
+                f"unknown model_size {model_size!r}; valid: {list(self._SAM2_MODELS)}"
+            )
+        self.model_size = model_size
         self.predictor = self._load_predictor()
         self.text_prompt = text_prompt
 
@@ -343,12 +365,20 @@ class SAM2VideoPredictor(ObjectPredictor):
         # hydra is initialized on import of sam2, which sets the search path which can't be modified
         # so we need to clear the hydra instance
         hydra.core.global_hydra.GlobalHydra.instance().clear()
-        
+
         # reinit hydra with a new search path for configs
         hydra.initialize_config_module("robokit/sam2/sam2/", version_base='1.2') # Please don't change this
 
-        self.model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml" # Please don't change this
-        self.checkpoint_path = "./ckpts/samv2/sam2.1_hiera_large.pth" # Please don't change this
+        cfg_name, ckpt_name, src_name = self._SAM2_MODELS[self.model_size]
+        self.model_cfg = cfg_name
+        self.checkpoint_path = f"./ckpts/samv2/{ckpt_name}"
+        # Auto-download if missing (first time someone picks a non-large variant).
+        if not os.path.exists(self.checkpoint_path):
+            os.makedirs(os.path.dirname(self.checkpoint_path), exist_ok=True)
+            url = self._SAM2_BASE_URL + src_name
+            print(f"[sam2] downloading {url} -> {self.checkpoint_path}")
+            import urllib.request
+            urllib.request.urlretrieve(url, self.checkpoint_path)
 
 
     def _load_predictor(self):
