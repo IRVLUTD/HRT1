@@ -424,6 +424,37 @@ Apples-to-apples bench with each branch's *as-shipped* CLI defaults, 30 syntheti
 
 Smaller than the survey-derived "expected ≈4–8×" estimate. Reasons: the CPU bench is thermal-noisy (1083/870/1163 ms/frame across 3 trials), and the per-frame fixed cost (URDF reload in `reset()`, ~tens of ms) doesn't shrink with iter count. On GPU on a real rig — where per-particle-iter cost shrinks more than fixed cost does — the speedup should be substantially larger.
 
+#### Phase 5: deepcopy snapshot for `reset()`
+
+Profiling on a real Blackwell-GPU run revealed that even after Phase 1–4, the per-frame `run_adam` time was bouncing between 150–500 ms, and 98% of total per-frame wall-clock was inside `run_adam`. The variance came from the URDF reload in `reset()` — pytorch_kinematics' chain construction has stochastic cost.
+
+Fix: `__init__` now takes a `copy.deepcopy` snapshot of the freshly-built `target_handmodel`. `reset()` restores from the snapshot instead of re-parsing URDF. Functionally identical (clean kinematic-chain state, no accumulation regression) but skips URDF I/O + parse cost.
+
+Measured (real run, 70 frames, --num_particles 4 --max_iter 15):
+- before snapshot: `run_adam` 150–500 ms (high variance), 1.45 it/s
+- after snapshot:  `run_adam` 267–277 ms (rock-solid), **1.67 it/s peak**, ~600 ms/frame total
+
+The variance collapse is the most important signal — confirms the deepcopy is restoring the same clean state the URDF reload was, just without paying for the parse.
+
+#### Phase 6: BatchedAdamGraspTransfer (frame-level parallelism)
+
+After Phase 5, profiling showed `run_adam` itself was the only meaningful cost left (270 ms × 2 hands per frame), and the GPU was severely underutilized — at `num_particles=4`, kernel-launch overhead dominated over actual compute. Adding `BatchedAdamGraspTransfer` processes N frames in a single Adam call by stacking each frame's P particles along the batch dim (total batch = N×P).
+
+Wired into `transfer_from_hamer.main()` as `--frame_batch_size` (default 1 keeps per-frame loop). Works only for offline preprocessing — loses temporal warm-start within a batch.
+
+Measured on `task_39` (70 frames, RTX 5070 Laptop, robokit-py3.10):
+
+| `--frame_batch_size` | ms/frame | wall | speedup vs F=1 |
+|---|---:|---:|---:|
+| 1 (sequential, Phase 5) | 1486 | 119 s | 1.0× |
+| **4** | **301** | **42.8 s** | **2.78×** |
+| 8 | 425 | 47.4 s | 2.51× |
+| 16 | 331 | 47.3 s | 2.52× |
+
+F=4 is the sweet spot for a 70-frame task; longer videos may shift it higher. Combined with Phases 1–5 the overall improvement on this rig is ~5× wall-clock vs main.
+
+A/B: `--frame_batch_size 1` reverts to per-frame mode. Output PLY/npz count is identical (verified — all 70 frames produced PLYs in both paths).
+
 **Phase 4 additions** (committed in `IRVLUTD/rfp-grasp-transfer@jishnu/fasten-vie` and bumped in the parent submodule pointer):
 
 - **Cache `grasp_transfer_correspondence`**: the source ↔ target gripper-coord correspondence is a deterministic function of two static tensors (one per source robot, one per target robot, both loaded once from pickle). Previously every `reset()` recomputed an O(M·N) spherical-distance matrix between source/target gripper coords. Now computed once on first `reset()` and reused.
