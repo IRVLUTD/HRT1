@@ -119,15 +119,12 @@ def main(argv):
     try:
         # ---------------- Model loading ----------------
         vlog.section("Loading models")
-        t = _time.time()
-        with _silent():
-            gdino = GroundingDINOObjectPredictor()
-        vlog.step(f"GroundingDINO loaded ({vlog.fmt_duration(_time.time() - t)})")
-
-        t = _time.time()
-        with _silent():
-            sam2 = SAM2VideoPredictor(text_prompt, model_size=FLAGS.sam2_size)
-        vlog.step(f"SAM2 ({FLAGS.sam2_size}) loaded ({vlog.fmt_duration(_time.time() - t)})")
+        with vlog.working("Loading GroundingDINO (BERT + Swin-T + ckpts)"):
+            with _silent():
+                gdino = GroundingDINOObjectPredictor()
+        with vlog.working(f"Loading SAM2.1 ({FLAGS.sam2_size}) — first run downloads checkpoint"):
+            with _silent():
+                sam2 = SAM2VideoPredictor(text_prompt, model_size=FLAGS.sam2_size)
 
         # ---------------- Detection ----------------
         vlog.section("Detection (first frame)")
@@ -136,14 +133,15 @@ def main(argv):
         vlog.note(f"frame: {os.path.basename(first_frame_path)} ({first_frame.size[0]}×{first_frame.size[1]})")
 
         t = _time.time()
-        with _silent():
-            initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
+        with vlog.working(f"Running GroundingDINO with prompt {text_prompt!r}"):
+            with _silent():
+                initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
         det_dt = _time.time() - t
 
         if len(initial_bboxes) == 0:
             vlog.error(f"No bounding boxes detected for prompt {text_prompt!r}.")
             return
-        vlog.step(f"detected {len(initial_bboxes)} bbox(es) in {vlog.fmt_duration(det_dt)}")
+        vlog.step(f"  ↳ {len(initial_bboxes)} bbox(es) detected")
 
         bbox_arrays = [
             np.array(gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size))
@@ -152,6 +150,13 @@ def main(argv):
 
         # ---------------- Propagation ----------------
         vlog.section("Tracking (SAM2 propagation)")
+        vlog.note(
+            f"propagating {len(bbox_arrays)} obj across all frames; "
+            "init_state warms up first (DALI fast-path on if installed)…"
+        )
+        # SAM2 emits its own tqdm bar inside propagate_in_video — that's the
+        # primary live progress signal during this stage; we just time the
+        # whole call so the summary panel shows total wall + fps.
         t = _time.time()
         frame_names, video_segments = sam2.propagate_masks_and_save_multi(
             video_dir,

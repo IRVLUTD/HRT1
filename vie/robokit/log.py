@@ -102,6 +102,39 @@ def success(msg: str) -> None:
 
 
 @contextmanager
+def working(msg: str, success_msg: Optional[str] = None):
+    """Spinner + live message while a long op runs. On exit, replaces the
+    spinner with a green ✓ line that includes elapsed time. Use as:
+
+        with vlog.working("Loading GroundingDINO"):
+            gdino = GroundingDINOObjectPredictor()
+
+    The status line dynamically updates (no console clutter); each call
+    consumes one terminal line. If the op fails the spinner stops and the
+    exception propagates.
+    """
+    console = _get_console()
+    t0 = time.time()
+    status = console.status(f"[cyan]{msg}…[/]", spinner="dots")
+    status.start()
+    try:
+        # Yield the status object so callers can update the message mid-op:
+        #   with vlog.working("Loading models") as s:
+        #       gdino = ...
+        #       s.update("[cyan]Loading SAM2…[/]")
+        yield status
+    except Exception:
+        status.stop()
+        console.print(f"[red]✗[/] {msg} (failed after {fmt_duration(time.time() - t0)})")
+        raise
+    else:
+        status.stop()
+        dt = time.time() - t0
+        final = success_msg or msg
+        console.print(f"[green]✓[/] {final} ({fmt_duration(dt)})")
+
+
+@contextmanager
 def progress(description: str = "working", total: Optional[int] = None):
     """Context manager that yields a (Progress, task_id) pair. Use as:
 
