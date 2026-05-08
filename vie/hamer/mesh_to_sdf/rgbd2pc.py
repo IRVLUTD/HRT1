@@ -1,10 +1,12 @@
 import numpy as np
-from sklearn.neighbors import KDTree
-from sklearn.cluster import KMeans
 import math
-import pyrender
-import open3d as o3d
 import time
+from sklearn.neighbors import KDTree
+# pyrender, open3d, KMeans are lazy-imported at their use sites:
+#   pyrender    -> compute_sdf_cost(vis=True), opt-in only
+#   open3d      -> save_point_cloud(...), per-call
+#   KMeans      -> __init__(use_kmeans=True), opt-in only
+# Top-level imports were costing several seconds of startup on a fresh process.
 # import _init_paths
 
 
@@ -24,6 +26,7 @@ class RGBD2PC:
 
         # kmean to keep the big cluster
         if use_kmeans:
+            from sklearn.cluster import KMeans  # lazy
             kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(pc.T)
             labels = kmeans.labels_
             n0 = np.sum(labels == 0)
@@ -54,6 +57,7 @@ class RGBD2PC:
             colors = self.map_rgb_to_points(self.rgb)
 
         # Create Open3D point cloud with color data
+        import open3d as o3d  # lazy: only used by save_point_cloud / get_rgbd_point_cloud paths
         pc = o3d.geometry.PointCloud()
         pc.points = o3d.utility.Vector3dVector(self.points)  # 3D points
         pc.colors = o3d.utility.Vector3dVector(colors)  # RGB colors
@@ -84,6 +88,7 @@ class RGBD2PC:
         pc = self.get_rgbd_point_cloud()
 
         # Save the point cloud as a PLY file
+        import open3d as o3d  # lazy
         o3d.io.write_point_cloud(file_path, pc)
         # print(f"Point cloud saved to {file_path}")
 
@@ -132,6 +137,7 @@ class RGBD2PC:
 
         # visualization
         if vis:
+            import pyrender  # lazy: opt-in viewer only
             index = np.absolute(distances) < 0.03
             points_show = query_points[index]
             colors = np.zeros(points_show.shape)

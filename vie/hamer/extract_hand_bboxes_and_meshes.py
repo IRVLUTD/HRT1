@@ -17,9 +17,10 @@ import torch
 import logging
 import argparse
 import numpy as np
-import open3d as o3d
 from pathlib import Path
 from scipy.optimize import minimize
+# open3d only used in save_point_cloud_as_ply (per-frame call); lazy-import to
+# skip ~1-2s of startup when running --help or short test cases.
 # import matplotlib.pyplot as plt
 
 # Import custom modules
@@ -311,7 +312,8 @@ class HandInfoExtractor:
         # Ensure the output directory exists
         os.makedirs(output_folder, exist_ok=True)
 
-        # Create an Open3D PointCloud object
+        # Create an Open3D PointCloud object (lazy import — only this method needs it).
+        import open3d as o3d
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(vertices)
 
