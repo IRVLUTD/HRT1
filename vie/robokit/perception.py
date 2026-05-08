@@ -129,15 +129,15 @@ _DALI_INSTALLED = _install_dali_sam2_loader()
 if _DALI_INSTALLED:
     logging.info("[sam2] DALI fast-path enabled for init_state JPEG decode")
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
-from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+# Heavy imports moved to lazy at use site — these were costing ~5s of startup
+# time each (pyrender pulls in pyglet+tkinter+freetype+imageio; mobile_sam
+# pulls in mobile-friendly Sam encoders) and the GDINO+SAM2 video path doesn't
+# touch any of them. matplotlib is also lazy because the only consumer is the
+# opt-in trajectory-overlay path. KDTree, pyrender are only used by the depth-
+# point-cloud helpers (DepthPC) and MobileSAMPredictor below.
 from sam2.build_sam import build_sam2_video_predictor
-from matplotlib import (patches, pyplot as plt)
-import matplotlib.cm as cm
 
-# Depth Point Cloud
 import math
-import pyrender
-from sklearn.neighbors import KDTree
 
 
 # os.system("python setup.py build develop --user")
@@ -364,6 +364,10 @@ class SegmentAnythingPredictor(ObjectPredictor):
         Initialize the SegmentAnythingPredictor object.
         """
         super(SegmentAnythingPredictor, self).__init__()
+        # Lazy import: mobile_sam pulls in heavy deps; only load when this
+        # specific predictor is instantiated (the GDINO+SAM2-video path
+        # doesn't touch it).
+        from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
         self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
         self.mask_generator = SamAutomaticMaskGenerator(self.sam)  # generate masks for entire image
         self.sam.to(device=self.device)
@@ -515,6 +519,7 @@ class SAM2VideoPredictor(ObjectPredictor):
 
             # Display the frame if requested
             if show_frame:
+                from matplotlib import pyplot as plt
                 plt.figure(figsize=(9, 6))
                 plt.title(f"Frame {frame_idx}")
                 plt.imshow(img)
@@ -571,6 +576,7 @@ class SAM2VideoPredictor(ObjectPredictor):
             self._load_and_show_frame(video_dir, show_frame=True)
 
             # Load the frame
+            from matplotlib import pyplot as plt
             frame_names = self.load_frames_from_directory(video_dir)
             frame_path = os.path.join(video_dir, frame_names[frame_idx])
             image = PILImg.open(frame_path)
@@ -668,6 +674,8 @@ class SAM2VideoPredictor(ObjectPredictor):
 
                 fig = ax = None
                 if save_output and save_traj_overlay:
+                    # Lazy: matplotlib is only needed on the opt-in overlay path.
+                    from matplotlib import pyplot as plt
                     fig, ax = plt.subplots(figsize=(6, 4))
                     ax.set_axis_off()
 
@@ -757,7 +765,11 @@ class SAM2VideoPredictor(ObjectPredictor):
                 # Reuse a single matplotlib figure across frames when overlay saving is on.
                 fig = ax = bg_img_artist = bbox_patch = None
                 centroid_xs, centroid_ys = [], []
+                colormap = None
                 if save_output and save_traj_overlay:
+                    # Lazy: matplotlib is only needed on the opt-in overlay path.
+                    from matplotlib import pyplot as plt
+                    import matplotlib.cm as cm
                     fig, ax = plt.subplots(figsize=(6, 4))
                     ax.set_axis_off()
                     bbox_patch = plt.Rectangle(
@@ -958,6 +970,8 @@ class DepthPointCloud:
         # transform points to world
         pc_base = camera_pose[:3, :3] @ pc + camera_pose[:3, 3].reshape((3, 1))
         self.points = pc_base.T
+        # Lazy: sklearn.neighbors imports a lot. Only paid when DepthPC used.
+        from sklearn.neighbors import KDTree
         self.kd_tree = KDTree(self.points)
         
 
@@ -1007,6 +1021,9 @@ class DepthPointCloud:
 
         # visualization
         if vis:
+            # Lazy: pyrender pulls in pyglet+tkinter+freetype+imageio (~5s).
+            # Only loaded for opt-in viewer.
+            import pyrender
             index = np.absolute(distances) < 0.03
             points_show = query_points[index]
             colors = np.zeros(points_show.shape)
@@ -1050,6 +1067,7 @@ class DepthPointCloud:
         sdf = self.get_sdf(query_points)
 
         # visualization
+        import pyrender  # lazy
         colors = np.zeros(query_points.shape)
         colors[sdf < 0, 2] = 1
         colors[sdf > 0, 0] = 1
