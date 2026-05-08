@@ -40,6 +40,97 @@ except Exception:
             "fallback path; otherwise the model will fail at first inference "
             "call with `name '_C' is not defined`."
         )
+
+
+# ---------------- DALI fast-path for SAM2 init_state ----------------
+# SAM2's load_video_frames_from_jpg_images does PIL JPEG decode + resize
+# sequentially per frame. On a 70-frame clip this is ~10s upfront, dominated
+# by single-thread JPEG decode. NVIDIA DALI with nvJPEG GPU decoding processes
+# all frames in one pipeline run, returning the same (N, 3, H, H) normalized
+# tensor SAM2 expects, typically ~10x faster on this stage.
+#
+# We detect DALI at import time and monkey-patch sam2.utils.misc; if DALI is
+# missing the original PIL path stays in place (no behavior change).
+def _install_dali_sam2_loader():
+    try:
+        from nvidia.dali import pipeline_def, fn, types
+        from nvidia.dali.plugin.pytorch import feed_ndarray
+        import sam2.utils.misc as _sam2_misc
+    except Exception:
+        return False  # DALI or sam2 not available; leave original in place
+
+    _orig_loader = _sam2_misc.load_video_frames_from_jpg_images
+
+    def dali_loader(
+        video_path, image_size, offload_video_to_cpu,
+        img_mean=(0.485, 0.456, 0.406),
+        img_std=(0.229, 0.224, 0.225),
+        async_loading_frames=False,
+        compute_device=torch.device("cuda"),
+    ):
+        # Fall back to original for async / non-dir paths.
+        if async_loading_frames or not (
+            isinstance(video_path, str) and os.path.isdir(video_path)
+        ):
+            return _orig_loader(
+                video_path, image_size, offload_video_to_cpu,
+                img_mean, img_std, async_loading_frames, compute_device,
+            )
+
+        frame_names = sorted(
+            [p for p in os.listdir(video_path)
+             if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]],
+            key=lambda p: int(os.path.splitext(p)[0]),
+        )
+        if not frame_names:
+            raise RuntimeError(f"no images found in {video_path}")
+        img_paths = [os.path.join(video_path, n) for n in frame_names]
+        num_frames = len(img_paths)
+
+        device_id = compute_device.index if compute_device.index is not None else 0
+
+        @pipeline_def(batch_size=num_frames, num_threads=4, device_id=device_id)
+        def _pipe():
+            files, _ = fn.readers.file(files=img_paths, name="reader")
+            imgs = fn.decoders.image(files, device="mixed", output_type=types.RGB)
+            imgs = fn.resize(imgs, size=[image_size, image_size])
+            imgs = fn.crop_mirror_normalize(
+                imgs,
+                dtype=types.FLOAT,
+                output_layout="CHW",
+                mean=[m * 255 for m in img_mean],
+                std=[s * 255 for s in img_std],
+            )
+            return imgs
+
+        p = _pipe()
+        p.build()
+        out = p.run()
+        images_dali = out[0]
+
+        target_device = torch.device("cpu") if offload_video_to_cpu else compute_device
+        images = torch.empty(
+            (num_frames, 3, image_size, image_size),
+            dtype=torch.float32,
+            device=target_device,
+        )
+        # DALI's TensorList -> torch tensor (per-sample copy, all on GPU stays GPU)
+        for i in range(num_frames):
+            feed_ndarray(images_dali[i], images[i], cuda_stream=torch.cuda.current_stream())
+
+        # Original video size from one frame (DALI returns resized-only).
+        with PILImg.open(img_paths[0]) as im:
+            video_width, video_height = im.size
+
+        return images, video_height, video_width
+
+    _sam2_misc.load_video_frames_from_jpg_images = dali_loader
+    return True
+
+
+_DALI_INSTALLED = _install_dali_sam2_loader()
+if _DALI_INSTALLED:
+    logging.info("[sam2] DALI fast-path enabled for init_state JPEG decode")
 # from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
 from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 from sam2.build_sam import build_sam2_video_predictor
