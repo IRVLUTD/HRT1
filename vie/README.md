@@ -13,6 +13,7 @@
 
 
 - [📁 VIE Setup and Usage Guide](#-vie-setup-and-usage-guide)
+  - [✨ What's new on `jishnu/fasten-vie`](#-whats-new-on-jishnufasten-vie)
   - [🛠️ Setup Instructions](#️-setup-instructions)
     - [🧑‍💻 Run the Setup Script](#-run-the-setup-script)
   - [📜 Requirements](#-requirements)
@@ -39,6 +40,47 @@
     - [BundleSDF — docker persistence + tighter n\_step (not measured here)](#bundlesdf--docker-persistence--tighter-n_step-not-measured-here)
   - [🙏 Acknowledgments](#-acknowledgments)
 
+
+## ✨ What's new on `jishnu/fasten-vie`
+
+A coordinated speedup + UX pass across the four vie modules. **All optimizations preserve correctness; viz/debug outputs are opt-in via a unified `--save_viz` flag so the default fast path is also the clean path.**
+
+**Speed gains** (measured on RTX 5070 Laptop, `task_39` 70-frame clip):
+- **GDINO + SAMv2**: ~21× per-frame steady-state vs `main` (2000 ms → 94 ms)
+- **HaMeR**: 6.49× on the scipy-minimize stage; lazy imports cut startup ~5×
+- **rfp-grasp-transfer**: ~5× wall-clock end-to-end with `--frame_batch_size 4`
+- **BundleSDF**: persistent docker + `n_step=5` defaults wired through
+
+**Performance flags worth knowing** (default is *fast*; raise these if quality regresses):
+
+| Script | Speed flags | Quality fallbacks |
+|---|---|---|
+| `run_gdino_samv2.py` | `--sam2_size base_plus` (≈2× faster than `large`) | `--sam2_size large` |
+| `extract_hand_bboxes_and_meshes.py` | warm-start on, `--opt_xatol 1e-4 --opt_maxiter 30 --no_fp16` to revert | `--no_warm_start --opt_xatol 1e-5 --opt_maxiter 50` |
+| `transfer_from_hamer.py` | `--num_particles 16 --max_iter 50 --frame_batch_size 4` | `--num_particles 32 --max_iter 100 --frame_batch_size 1` |
+| `run_bundlesdf.py` | `--n_step 5` | `--n_step 10` |
+
+**Unified `--save_viz` flag**: every entry-point script accepts `--save_viz` to write the human-readable debug artifacts that the original pipeline produced. Off by default for speed; turn it on for any single stage:
+
+```shell
+# GDINO + SAMv2: writes out/samv2/<prompt>/masks_traj_overlayed/*.png
+python run_gdino_samv2.py --input_dir $TASK_DATA_ROOT/rgb \
+    --text_prompt "white_egg" --save_viz
+
+# HaMeR: writes out/hamer/extra_plots/{frame}_{0,1}.png + _all.jpg
+python hamer/extract_hand_bboxes_and_meshes.py --opt_weight 100.0 \
+    --input_dir $TASK_DATA_ROOT/rgb --save_viz
+
+# rfp-grasp-transfer: writes out/hamer/transfer_extra_plots/{frame}_{0,1}.html (~5MB each)
+python rfp-grasp-transfer/transfer_from_hamer.py \
+    --mano_model_dir hamer/_DATA/data/mano \
+    --target_gripper fetch_gripper \
+    --input_dir $TASK_DATA_ROOT --save_viz
+```
+
+Per-script flags (`--save_traj_overlay`, `--save_debug_renders`, `--debug_plots`) still work for fine-grained control. Downstream pipeline data (binary masks, MANO npzs, scene PLYs, transferred-gripper PLYs, BundleSDF poses) is **always** written — `--save_viz` only toggles the *human-readable debug overlays* on top of those.
+
+**UX**: each script now shows a colored startup banner, live spinners during long ops (model loads, model downloads, GroundingDINO inference), section headers (Configuration / Loading models / Tracking), and a bordered cyan summary panel with frames / fps / total wall / output path at the end. Third-party deprecation/registry warnings are silenced — real errors still propagate. See [`vie/robokit/log.py`](robokit/log.py) for the shared logging utilities.
 
 ## 🛠️ Setup Instructions
 
@@ -137,8 +179,12 @@ cd $VIE_ROOT
 python run_gdino_samv2.py --input_dir $TASK_DATA_ROOT/rgb --text_prompt <obj-text-prompt> --save_interval=1
 # Output saved in:
 # $TASK_DATA_ROOT/out/samv2/<obj_text_prompt>/obj_masks - object mask
-# $TASK_DATA_ROOT/out/samv2/<obj_text_prompt>/masks_traj_overlayed - Trajectory + mask overlay + initial object bbox
+# $TASK_DATA_ROOT/out/samv2/<obj_text_prompt>/masks_traj_overlayed - (only with --save_viz) trajectory overlays
 ```
+
+**Speed/viz options:**
+- `--sam2_size {large|base_plus|small|tiny}` — smaller variants are faster (default `large`); `base_plus` is the recommended sweet spot.
+- `--save_viz` — also write the trajectory-overlay PNGs (slow; off by default).
 
 <hr>
 
@@ -155,8 +201,14 @@ cd $VIE_ROOT/hamer
 python extract_hand_bboxes_and_meshes.py --opt_weight 100.0 --input_dir $TASK_DATA_ROOT/rgb
 ```
 
+**Speed/viz options:**
+- `--save_viz` — write the per-frame regression + side-view + overlay PNGs to `out/hamer/extra_plots/` (off by default).
+- `--no_warm_start --opt_xatol 1e-5 --opt_maxiter 50` — revert the scipy-minimize speedup back to Phase 1 behavior if mesh quality regresses.
+- `--no_fp16` — disable fp16 autocast on the HaMeR transformer.
+- `--body_detector regnety` — use a smaller detector if your GPU OOMs on the default ViTDet-Huge.
+
 📤 Output Directory Structure:
-- `$TASK_DATA_ROOT/out/hamer/extra_plots` – Visualizations and debugging images
+- `$TASK_DATA_ROOT/out/hamer/extra_plots` – (only with `--save_viz`) per-frame debug PNGs
 - `$TASK_DATA_ROOT/out/hamer/scene` – RGB scene point cloud
 - `$TASK_DATA_ROOT/out/hamer/model` – HaMeR results including MANO parameters
 - `$TASK_DATA_ROOT/out/hamer/3dhand` – Aligned 3D hand meshes
@@ -182,15 +234,20 @@ git submodule update --init --recursive
 
 # Run the hand-to-gripper transfer script
 python transfer_from_hamer.py \
---mano_model_dir ../hamer/_DATA/data/mano/mano_v1_2/models/ \
---target_gripper fetch_gripper \
---debug_plots \
---input_dir $TASK_DATA_ROOT
+    --mano_model_dir ../hamer/_DATA/data/mano \
+    --target_gripper fetch_gripper \
+    --input_dir $TASK_DATA_ROOT
 ```
 
+**Speed/viz options:**
+- `--frame_batch_size 4` — process 4 frames per Adam call instead of one. Roughly **3× wall-clock** on this 70-frame task. Loses temporal warm-start *within* a batch; only sensible for offline preprocessing.
+- `--num_particles 16 --max_iter 50` — current defaults; raise if grasp quality regresses (`--num_particles 32 --max_iter 300` for the original main behavior).
+- `--save_viz` — write per-frame Plotly HTML to `out/hamer/transfer_extra_plots/` (~5MB/frame, slow; off by default). Works on both per-frame and `--frame_batch_size > 1` paths.
+- `--device cpu` — fall back to CPU when GPU OOMs or the GPU is too small for the workload to amortize kernel-launch overhead.
+
 📤 Output Directory Structure:
-- `$TASK_DATA_ROOT/out/hamer/transfer_extra_plots` – Visualizations and debugging plots
-- `$TASK_DATA_ROOT/out/hamer/transfer_hand_mesh` – Transfered 3D fetch gripper meshes
+- `$TASK_DATA_ROOT/out/hamer/transfer_extra_plots` – (only with `--save_viz`) Plotly HTML overlays
+- `$TASK_DATA_ROOT/out/hamer/transfer_hand_mesh` – Transferred 3D fetch gripper meshes
 
 🛠️ Troubleshooting
 If you see this error:
