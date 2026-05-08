@@ -90,6 +90,12 @@ flags.DEFINE_boolean(
     False,
     "Also save matplotlib trajectory-overlay PNGs (slow; off by default).",
 )
+flags.DEFINE_boolean(
+    "save_viz",
+    False,
+    "Unified across vie scripts: save all visualization/debug artifacts for "
+    "this stage. Equivalent to --save_traj_overlay here.",
+)
 flags.DEFINE_string(
     "sam2_size",
     "large",
@@ -119,7 +125,9 @@ def main(argv):
     vlog.note(f"text prompt     : {text_prompt!r}")
     vlog.note(f"sam2 model size : {FLAGS.sam2_size}")
     vlog.note(f"save interval   : {save_interval}")
-    vlog.note(f"save overlay    : {FLAGS.save_traj_overlay}")
+    save_traj = bool(FLAGS.save_traj_overlay or FLAGS.save_viz)
+    vlog.note(f"save overlay    : {save_traj} "
+              f"(--save_traj_overlay={FLAGS.save_traj_overlay}, --save_viz={FLAGS.save_viz})")
 
     try:
         # ---------------- Model loading ----------------
@@ -167,7 +175,7 @@ def main(argv):
             video_dir,
             bbox_arrays,
             save_interval,
-            save_traj_overlay=FLAGS.save_traj_overlay,
+            save_traj_overlay=save_traj,
         )
         prop_dt = _time.time() - t
         n_frames = len(frame_names)

@@ -549,6 +549,9 @@ if __name__ == "__main__":
     parser.add_argument("--opt_maxiter", type=int, default=30, help="Nelder-Mead max iterations.")
     parser.add_argument("--opt_disp", action="store_true", help="Print scipy minimize convergence info per call (slow).")
     parser.add_argument("--save_debug_renders", action="store_true", help="Save per-frame regression/side/all overlay PNGs (slow; off by default).")
+    parser.add_argument("--save_viz", action="store_true",
+                        help="Unified across vie scripts: save all visualization/debug "
+                             "artifacts for this stage. Equivalent to --save_debug_renders here.")
     parser.add_argument("--no_warm_start", action="store_true", help="Disable warm-starting Nelder-Mead from prior frame's translation (per hand side).")
     parser.add_argument("--no_fp16", action="store_true", help="Disable fp16 autocast on the HaMeR transformer forward pass (default on, CUDA-only).")
     parser.add_argument("--body_detector", type=str, default="vitdet", choices=["vitdet", "regnety"],
@@ -563,7 +566,7 @@ if __name__ == "__main__":
         xatol=args.opt_xatol,
         maxiter=args.opt_maxiter,
         disp=args.opt_disp,
-        save_debug_renders=args.save_debug_renders,
+        save_debug_renders=args.save_debug_renders or args.save_viz,
         warm_start=not args.no_warm_start,
         fp16=not args.no_fp16,
     )

@@ -853,6 +853,8 @@ class SAM2VideoPredictor(ObjectPredictor):
             if random_color:
                 color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
             else:
+                # Lazy import: only the overlay path reaches this method.
+                from matplotlib import pyplot as plt
                 cmap = plt.get_cmap("tab10")
                 color = np.array([*cmap(obj_id or 0)[:3], 0.6])
 
