@@ -22,23 +22,20 @@ from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
 
 # GroundingDINO ships a custom CUDA op (`_C`) for multi-scale deformable
-# attention. Building it requires a CUDA toolchain matching torch's cuda
-# version, which is fragile on Blackwell GPUs / mismatched nvcc versions. If
-# `_C` is missing the model errors at first inference call. setup_vie.sh
-# applies an in-place patch to ms_deform_attn.py that falls back to the
-# pure-PyTorch implementation. This block detects the missing-and-unpatched
-# case and prints an actionable error so users know exactly what to do.
+# attention. setup_vie.sh applies an in-place patch to ms_deform_attn.py that
+# falls back to the pure-PyTorch implementation when `_C` is missing. The patch
+# itself emits one warning at import time. We only emit a second (actionable)
+# warning here in the dangerous case where `_C` is missing AND the patch was
+# never applied — i.e. the module doesn't even define _HAS_C.
 try:
     from groundingdino import _C  # noqa: F401
 except Exception:
     from groundingdino.models.GroundingDINO import ms_deform_attn as _gdino_msda
-    if not getattr(_gdino_msda, "_HAS_C", False):
+    if not hasattr(_gdino_msda, "_HAS_C"):
         warnings.warn(
-            "GroundingDINO compiled extension `_C` is not available AND the "
-            "in-place fallback patch hasn't been applied. Re-run "
-            "vie/setup_vie.sh to patch ms_deform_attn.py for the pure-PyTorch "
-            "fallback path; otherwise the model will fail at first inference "
-            "call with `name '_C' is not defined`."
+            "GroundingDINO `_C` missing AND in-place fallback patch not applied. "
+            "Re-run vie/setup_vie.sh; otherwise the model will fail at first "
+            "inference call with `name '_C' is not defined`."
         )
 
 
@@ -272,7 +269,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
             cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
             checkpoint = torch.load(cache_file, map_location=self.device)
             log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-            print("Model loaded from {} \n => {}".format(cache_file, log))
+            self.logger.debug("Model loaded from %s => %s", cache_file, log)
             _ = model.eval()
             return model    
 
@@ -482,7 +479,7 @@ class SAM2VideoPredictor(ObjectPredictor):
             # Load the SAM2 model with the configuration and checkpoint
             predictor = build_sam2_video_predictor(self.model_cfg, self.checkpoint_path)
 
-            print("SAM2 video predictor initialized successfully.")
+            self.logger.debug("SAM2 video predictor initialized.")
             
             return predictor
         
@@ -704,9 +701,12 @@ class SAM2VideoPredictor(ObjectPredictor):
                     plt.close(fig)
 
                 t_done = time.time()
-                logging.info(
-                    f"[samv2] {len(bboxes)} obj(s) x {len(frame_names)} frames: "
-                    f"init={t_init-t0:.2f}s propagate+save={t_done-t_init:.2f}s total={t_done-t0:.2f}s"
+                # Demoted to debug: callers (run_gdino_samv2.py) now render their
+                # own rich summary panel with these numbers.
+                logging.getLogger(__name__).debug(
+                    "[samv2] %d obj(s) x %d frames: init=%.2fs propagate+save=%.2fs total=%.2fs",
+                    len(bboxes), len(frame_names),
+                    t_init - t0, t_done - t_init, t_done - t0,
                 )
 
         except Exception as e:

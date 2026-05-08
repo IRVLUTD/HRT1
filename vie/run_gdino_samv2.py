@@ -45,10 +45,35 @@ The script follows these steps:
 
 
 import os
+# Silence the third-party deprecation/registry/dep-version chatter that fires
+# on every import (timm.models.layers, mobile_sam tiny_vit registry, transformers
+# device-arg deprecations, torch checkpoint use_reentrant, requests urllib3
+# version mismatch, etc.). Real exceptions still propagate.
+import warnings
+warnings.filterwarnings("ignore")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("PYTHONWARNINGS", "ignore")
+
+import contextlib
+import io
+import time as _time
 import numpy as np
-from absl import app, flags, logging
+from absl import app, flags
 from PIL import Image as PILImg
+from robokit import log as vlog
 from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
+
+# absl + downstream lib loggers are too verbose for end-user runs.
+import logging as _stdlogging
+from absl import logging as _absl_logging
+_absl_logging.set_verbosity(_absl_logging.WARNING)  # absl uses its own setup
+_stdlogging.getLogger("absl").setLevel(_stdlogging.WARNING)
+for _noisy in ("sam2", "build_sam", "groundingdino", "transformers"):
+    _stdlogging.getLogger(_noisy).setLevel(_stdlogging.WARNING)
+# Catch-all: raise root logger to WARNING so module-level logging.info(...)
+# from third-party code doesn't leak into our rich output. Our own logger
+# (vlog.setup) explicitly sets propagate=False so its output is unaffected.
+_stdlogging.getLogger().setLevel(_stdlogging.WARNING)
 
 # Define absl flags for CLI arguments
 FLAGS = flags.FLAGS
@@ -68,61 +93,99 @@ flags.DEFINE_string(
 )
 
 
+def _silent():
+    """Swallow noisy stdout/stderr from third-party model loads (BERT
+    text_encoder_type print, GroundingDINO incompatible-keys log, etc.)."""
+    return contextlib.redirect_stdout(io.StringIO())
+
+
 def main(argv):
-    # Get input values from flags
     video_dir, text_prompt = sanity_check(argv)
     save_interval = FLAGS.save_interval
-
-    # Check if required flags are provided
     if not video_dir or not text_prompt:
         raise ValueError("Both --input_dir and --text_prompt flags must be provided.")
 
+    log = vlog.setup("gsam")
+    t_start = _time.time()
+
+    # ---------------- Configuration ----------------
+    vlog.section("GDINO + SAMv2 — object mask propagation")
+    vlog.note(f"input dir       : {video_dir}")
+    vlog.note(f"text prompt     : {text_prompt!r}")
+    vlog.note(f"sam2 model size : {FLAGS.sam2_size}")
+    vlog.note(f"save interval   : {save_interval}")
+    vlog.note(f"save overlay    : {FLAGS.save_traj_overlay}")
+
     try:
-        logging.info("Initialize object detectors")
+        # ---------------- Model loading ----------------
+        vlog.section("Loading models")
+        t = _time.time()
+        with _silent():
+            gdino = GroundingDINOObjectPredictor()
+        vlog.step(f"GroundingDINO loaded ({vlog.fmt_duration(_time.time() - t)})")
 
-        # Initialize Grounding DINO for initial bbox detection
-        gdino = GroundingDINOObjectPredictor()
+        t = _time.time()
+        with _silent():
+            sam2 = SAM2VideoPredictor(text_prompt, model_size=FLAGS.sam2_size)
+        vlog.step(f"SAM2 ({FLAGS.sam2_size}) loaded ({vlog.fmt_duration(_time.time() - t)})")
 
-        # Initialize SAM2 for tracking across frames
-        sam2 = SAM2VideoPredictor(text_prompt, model_size=FLAGS.sam2_size)
-
-        # Read the first frame to detect initial bounding boxes
+        # ---------------- Detection ----------------
+        vlog.section("Detection (first frame)")
         first_frame_path = os.path.join(video_dir, sorted(os.listdir(video_dir))[0])
         first_frame = PILImg.open(first_frame_path).convert("RGB")
+        vlog.note(f"frame: {os.path.basename(first_frame_path)} ({first_frame.size[0]}×{first_frame.size[1]})")
 
-        logging.info(
-            "GDINO: Predict initial bounding boxes, phrases, and confidence scores"
+        t = _time.time()
+        with _silent():
+            initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
+        det_dt = _time.time() - t
+
+        if len(initial_bboxes) == 0:
+            vlog.error(f"No bounding boxes detected for prompt {text_prompt!r}.")
+            return
+        vlog.step(f"detected {len(initial_bboxes)} bbox(es) in {vlog.fmt_duration(det_dt)}")
+
+        bbox_arrays = [
+            np.array(gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size))
+            for bbox in initial_bboxes
+        ]
+
+        # ---------------- Propagation ----------------
+        vlog.section("Tracking (SAM2 propagation)")
+        t = _time.time()
+        frame_names, video_segments = sam2.propagate_masks_and_save_multi(
+            video_dir,
+            bbox_arrays,
+            save_interval,
+            save_traj_overlay=FLAGS.save_traj_overlay,
         )
-        initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
+        prop_dt = _time.time() - t
+        n_frames = len(frame_names)
+        vlog.step(
+            f"propagated {len(bbox_arrays)} obj × {n_frames} frames in "
+            f"{vlog.fmt_duration(prop_dt)} ({vlog.fmt_rate(n_frames, prop_dt)})"
+        )
 
-        # Track ALL bounding boxes across frames in a single SAM2 inference pass.
-        if len(initial_bboxes) > 0:
-            logging.info(
-                f"Detected {len(initial_bboxes)} bounding boxes in the first frame"
-            )
-
-            bbox_arrays = [
-                np.array(gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size))
-                for bbox in initial_bboxes
-            ]
-
-            logging.info(
-                f"SAM2: Track {len(bbox_arrays)} bounding box(es) across all frames in one pass"
-            )
-            frame_names, video_segments = sam2.propagate_masks_and_save_multi(
-                video_dir,
-                bbox_arrays,
-                save_interval,
-                save_traj_overlay=FLAGS.save_traj_overlay,
-            )
-
-            logging.info("Tracking complete for all bounding boxes")
-        else:
-            logging.error("No bounding boxes detected in the first frame")
-
+        # ---------------- Summary ----------------
+        out_root = os.path.join(
+            os.path.dirname(video_dir), "out", "samv2",
+            text_prompt.lower().replace(" ", "_"),
+        )
+        total_dt = _time.time() - t_start
+        vlog.summary({
+            "objects":      str(len(bbox_arrays)),
+            "frames":       str(n_frames),
+            "detection":    vlog.fmt_duration(det_dt),
+            "propagation":  vlog.fmt_duration(prop_dt),
+            "total wall":   vlog.fmt_duration(total_dt),
+            "fps":          vlog.fmt_rate(n_frames, prop_dt),
+            "output":       out_root,
+        }, title="GSAM run summary")
+        vlog.success("Done.")
     except Exception as e:
-        # Handle unexpected errors
-        print(f"An unexpected error occurred: {e}")
+        vlog.error(f"Pipeline failed: {e}")
+        log.exception("traceback")
+        sys.exit(1)
 
 
 def sanity_check(argv):
