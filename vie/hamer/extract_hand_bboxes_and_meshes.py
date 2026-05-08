@@ -551,6 +551,10 @@ if __name__ == "__main__":
     parser.add_argument("--save_debug_renders", action="store_true", help="Save per-frame regression/side/all overlay PNGs (slow; off by default).")
     parser.add_argument("--no_warm_start", action="store_true", help="Disable warm-starting Nelder-Mead from prior frame's translation (per hand side).")
     parser.add_argument("--no_fp16", action="store_true", help="Disable fp16 autocast on the HaMeR transformer forward pass (default on, CUDA-only).")
+    parser.add_argument("--body_detector", type=str, default="vitdet", choices=["vitdet", "regnety"],
+                        help="Body detector for hand-bbox proposals. 'vitdet' is the upstream default "
+                             "(ViTDet-Huge, ~2.5GB VRAM); 'regnety' is much smaller (~250MB) and "
+                             "useful on GPUs <12GB VRAM where the full HaMeR + ViTPose + ViTDet stack OOMs.")
     args = parser.parse_args()
 
     input_dir = args.input_dir
@@ -575,7 +579,7 @@ if __name__ == "__main__":
         if not image_files:
             raise Exception(f"No image files found in the directory '{input_dir}'.")
         else:
-            hand_info_extractor = HandInfoExtractor(opt_cfg=opt_cfg)
+            hand_info_extractor = HandInfoExtractor(opt_cfg=opt_cfg, body_detector=args.body_detector)
 
             image_files = sorted(image_files, key=lambda x: int(re.search(r'\d+', x).group()))
 
