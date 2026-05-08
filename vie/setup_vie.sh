@@ -91,6 +91,35 @@ pip install --no-deps -e "$ROOT_DIR/hamer"
 echo "==> Step 4d: pin numpy<2 (matplotlib + c-extensions need 1.x)"
 pip install "numpy<2"
 
+# chumpy (used by smplx/MANO unpickling) imports `from numpy import bool, int,
+# float, ...` which numpy 1.20+ removed. Patch chumpy's __init__.py to add the
+# bare-Python aliases as attributes on numpy before the import.
+echo "==> Step 4e: patch chumpy for numpy 1.20+ removed aliases"
+python - <<'PY'
+import importlib.util, pathlib
+spec = importlib.util.find_spec("chumpy")
+if spec is None or spec.origin is None:
+    print("  [skip] chumpy not importable")
+else:
+    p = pathlib.Path(spec.origin)
+    src = p.read_text()
+    bad = "from numpy import bool, int, float, complex, object, unicode, str, nan, inf"
+    if bad in src and "setattr(_np, _name, _obj)" not in src:
+        good = (
+            "import numpy as _np\n"
+            "for _name, _obj in (('bool', bool), ('int', int), ('float', float),\n"
+            "                    ('complex', complex), ('object', object),\n"
+            "                    ('unicode', str), ('str', str)):\n"
+            "    if not hasattr(_np, _name):\n"
+            "        setattr(_np, _name, _obj)\n"
+            f"{bad}  # noqa: E402, F401\n"
+        )
+        p.write_text(src.replace(bad, good))
+        print(f"  patched {p}")
+    else:
+        print("  [skip] already patched or pattern missing")
+PY
+
 echo "==> Step 5: fetch HaMeR demo data + checkpoints (~couple GB)"
 cd "$ROOT_DIR/hamer"
 bash fetch_demo_data.sh
