@@ -54,26 +54,31 @@ warnings.filterwarnings("ignore")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("PYTHONWARNINGS", "ignore")
 
+# Lightweight imports first so we can show a banner immediately. The heavy ML
+# stack (torch / GroundingDINO / SAM2 / robokit.perception) takes ~5 s to
+# import on a fresh process; without a banner the user stares at a blank
+# terminal during that time.
 import contextlib
 import io
+import sys
 import time as _time
-import numpy as np
-from absl import app, flags
-from PIL import Image as PILImg
 from robokit import log as vlog
-from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
 
-# absl + downstream lib loggers are too verbose for end-user runs.
-import logging as _stdlogging
-from absl import logging as _absl_logging
-_absl_logging.set_verbosity(_absl_logging.WARNING)  # absl uses its own setup
-_stdlogging.getLogger("absl").setLevel(_stdlogging.WARNING)
-for _noisy in ("sam2", "build_sam", "groundingdino", "transformers"):
-    _stdlogging.getLogger(_noisy).setLevel(_stdlogging.WARNING)
-# Catch-all: raise root logger to WARNING so module-level logging.info(...)
-# from third-party code doesn't leak into our rich output. Our own logger
-# (vlog.setup) explicitly sets propagate=False so its output is unaffected.
-_stdlogging.getLogger().setLevel(_stdlogging.WARNING)
+vlog.section("GDINO + SAMv2 — object mask propagation")
+with vlog.working("Importing ML stack (torch, GroundingDINO, SAM2, robokit)"):
+    import numpy as np
+    from absl import app, flags
+    from PIL import Image as PILImg
+    from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
+
+    # absl + downstream lib loggers are too verbose for end-user runs.
+    import logging as _stdlogging
+    from absl import logging as _absl_logging
+    _absl_logging.set_verbosity(_absl_logging.WARNING)  # absl uses its own setup
+    _stdlogging.getLogger("absl").setLevel(_stdlogging.WARNING)
+    for _noisy in ("sam2", "build_sam", "groundingdino", "transformers"):
+        _stdlogging.getLogger(_noisy).setLevel(_stdlogging.WARNING)
+    _stdlogging.getLogger().setLevel(_stdlogging.WARNING)
 
 # Define absl flags for CLI arguments
 FLAGS = flags.FLAGS
@@ -109,7 +114,7 @@ def main(argv):
     t_start = _time.time()
 
     # ---------------- Configuration ----------------
-    vlog.section("GDINO + SAMv2 — object mask propagation")
+    vlog.section("Configuration")
     vlog.note(f"input dir       : {video_dir}")
     vlog.note(f"text prompt     : {text_prompt!r}")
     vlog.note(f"sam2 model size : {FLAGS.sam2_size}")
