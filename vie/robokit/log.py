@@ -43,7 +43,13 @@ def _get_console() -> Console:
         # Force colors even when stdout isn't a TTY so logs are pretty in
         # captured runs (e.g., bench scripts). Set NO_COLOR=1 to disable.
         force = os.environ.get("NO_COLOR") is None
-        _console = Console(force_terminal=force, highlight=False)
+        # Snapshot `sys.stdout` at construction so the Console keeps writing
+        # to the real terminal even when scripts later wrap their model-load
+        # block in `contextlib.redirect_stdout(...)` for noise suppression.
+        # Without this, `vlog.working()` and `vlog.progress()` spinners go
+        # silent for the duration of the redirect, leaving the user staring
+        # at a blank section header.
+        _console = Console(force_terminal=force, highlight=False, file=sys.stdout)
     return _console
 
 
