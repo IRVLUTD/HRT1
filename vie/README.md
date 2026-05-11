@@ -45,9 +45,9 @@
 
 A coordinated speedup + UX pass across the four vie modules. **All optimizations preserve correctness; viz/debug outputs are opt-in via a unified `--save_viz` flag so the default fast path is also the clean path.**
 
-**Speed gains** (measured on RTX 5070 Laptop, `task_39` 70-frame clip):
+**Speed gains** (measured on RTX 5070 Laptop / RTX A5000, representative tabletop clips):
 - **GDINO + SAMv2**: ~21× per-frame steady-state vs `main` (2000 ms → 94 ms)
-- **HaMeR**: 6.49× on the scipy-minimize stage; lazy imports cut startup ~5×
+- **HaMeR**: **10.9× end-to-end** (4 490 → 412 ms/frame, 12 m 25 s → 1 m 8 s on a 166-frame clip on A5000). Processing/viz mode split, torch Adam minimize replacing scipy Nelder-Mead, cv2 convex-hull mask replacing pyrender, Otsu-on-z depth-cluster filter, ViTDet + ViTPose pickled to `~/.cache/hamer/`. Add `--frame_batch_size 2` for another ~24%.
 - **rfp-grasp-transfer**: ~5× wall-clock end-to-end with `--frame_batch_size 4`
 - **BundleSDF**: persistent docker + `n_step=5` defaults wired through
 
@@ -56,7 +56,7 @@ A coordinated speedup + UX pass across the four vie modules. **All optimizations
 | Script | Speed flags | Quality fallbacks |
 |---|---|---|
 | `run_gdino_samv2.py` | `--sam2_size base_plus` (≈2× faster than `large`) | `--sam2_size large` |
-| `extract_hand_bboxes_and_meshes.py` | warm-start on, `--opt_xatol 1e-4 --opt_maxiter 30 --no_fp16` to revert | `--no_warm_start --opt_xatol 1e-5 --opt_maxiter 50` |
+| `extract_hand_bboxes_and_meshes.py` | defaults (torch Adam + fast convex-hull mask + Otsu depth-cluster); `--frame_batch_size 2` for cross-frame GPU batching; `--detector_stride 10` if subject is slow-moving | `--minimize_backend scipy --mask_backend pyrender` reverts to the Phase 1 / upstream path |
 | `transfer_from_hamer.py` | `--num_particles 16 --max_iter 50 --frame_batch_size 4` | `--num_particles 32 --max_iter 100 --frame_batch_size 1` |
 | `run_bundlesdf.py` | `--n_step 5` | `--n_step 10` |
 
@@ -196,22 +196,51 @@ This step extracts right(1) / left(0) hand bounding boxes and 3D hand meshes usi
 ✅ Assumptions:
 - Only one person is present in the scene.
 - Only frames containing at least one visible hand will be processed and saved under `out/hamer/model`.
+
+**Default (processing mode, rfp-ready)** — produces only `model/*.npz` (everything rfp consumes):
 ```shell
 cd $VIE_ROOT/hamer
 python extract_hand_bboxes_and_meshes.py --opt_weight 100.0 --input_dir $TASK_DATA_ROOT/rgb
 ```
+≈ 412 ms/frame on a 24 GB GPU, 4 490 → 412 ms/frame vs original (10.9× faster, see [⚡ Benchmark](#-benchmark)).
 
-**Speed/viz options:**
-- `--save_viz` — write the per-frame regression + side-view + overlay PNGs to `out/hamer/extra_plots/` (off by default).
-- `--no_warm_start --opt_xatol 1e-5 --opt_maxiter 50` — revert the scipy-minimize speedup back to Phase 1 behavior if mesh quality regresses.
+**Viz mode** — also writes scene PLY, 3dhand PLY, and per-frame debug renders:
+```shell
+python extract_hand_bboxes_and_meshes.py --opt_weight 100.0 --input_dir $TASK_DATA_ROOT/rgb --save_viz
+```
+≈ 3 s/frame; use when you want to inspect the pipeline visually.
+
+**Speed knobs (already tuned at defaults):**
+- `--frame_batch_size N` — cross-frame GPU batching. K=2 saves ~24% wall (median 11 mm translation drift); K>2 not recommended.
+- `--detector_stride N` — cache ViTDet body bbox over N frames (default 5). `--detector_stride 10` saves ~25% at cost of p95 = 10 cm drift on fast-moving subjects.
+- `--torch_steps N` / `--torch_min_steps N` / `--torch_tol F` — Adam minimize ceiling + patience early-stop knobs (defaults: 50 / 15 / 1e-3).
+- `--torch_lr F` — Adam learning rate (default 5e-3).
+- `--mask_backend {fast|pyrender}` — `fast` (default) uses cv2 convex hull (~5 ms); `pyrender` uses the full RGBA render (~370 ms).
+- `--minimize_backend {torch|scipy}` — `torch` (default) is GPU Adam; `scipy` is the original Nelder-Mead (kept for parity testing).
 - `--no_fp16` — disable fp16 autocast on the HaMeR transformer.
-- `--body_detector regnety` — use a smaller detector if your GPU OOMs on the default ViTDet-Huge.
+- `--body_detector {vitdet|regnety}` — `vitdet` default (~2.5 GB VRAM); `regnety` is smaller for low-VRAM GPUs.
+
+**Viz / output gates:**
+- `--save_viz` — bundle: enables `save_debug_renders`, `save_scene_pcd`, `save_3dhand_pcd`, and switches `mask_backend` to `pyrender` for fidelity.
+- `--save_scene_pcd` — write per-frame scene point cloud to `out/hamer/scene/*.ply` (off by default; only `seq_viewer.py` reads it).
+- `--save_3dhand_pcd` — write per-hand point cloud to `out/hamer/3dhand/*.ply` (off by default; rfp computes hand verts from `model/*.npz` directly).
+- `--save_debug_renders` — per-frame regression + side-view + overlay PNGs.
+
+**Model cache (auto, default on):**
+- First run: ViTDet + ViTPose are pickled to `~/.cache/hamer/` (~5 GB). Subsequent runs load from cache, saving ~18 s on model construction.
+- Cache is fingerprinted by the HaMeR checkpoint path + size + mtime, so it auto-invalidates if any ckpt changes.
+- `--no_model_cache` to disable.
+
+**Quality fallbacks** (only if mesh quality regresses):
+- `--no_warm_start --opt_xatol 1e-5 --opt_maxiter 50` — revert to Phase 1 scipy behavior.
+- `--minimize_backend scipy` — fall back to Nelder-Mead.
+- `--mask_backend pyrender` — fall back to the upstream rendered alpha mask.
 
 📤 Output Directory Structure:
-- `$TASK_DATA_ROOT/out/hamer/extra_plots` – (only with `--save_viz`) per-frame debug PNGs
-- `$TASK_DATA_ROOT/out/hamer/scene` – RGB scene point cloud
-- `$TASK_DATA_ROOT/out/hamer/model` – HaMeR results including MANO parameters
-- `$TASK_DATA_ROOT/out/hamer/3dhand` – Aligned 3D hand meshes
+- `$TASK_DATA_ROOT/out/hamer/model` – HaMeR results including MANO parameters, `opt_translation`, bboxes (always written; this is what rfp consumes)
+- `$TASK_DATA_ROOT/out/hamer/3dhand` – Aligned 3D hand meshes (only with `--save_viz` or `--save_3dhand_pcd`)
+- `$TASK_DATA_ROOT/out/hamer/scene` – RGB scene point cloud (only with `--save_viz` or `--save_scene_pcd`)
+- `$TASK_DATA_ROOT/out/hamer/extra_plots` – per-frame debug PNGs (only with `--save_viz` or `--save_debug_renders`)
 
 🛠️ Known Issue (Python 3.10+)
 If you encounter:
@@ -461,6 +490,29 @@ A/B knobs: `--no_warm_start`, `--opt_xatol 1e-5`, `--opt_maxiter 50` revert to P
 **Phase 4 additions (code-only on this rig)**:
 - `fp16` autocast wraps the HaMeR transformer forward pass on CUDA (`torch.amp.autocast(dtype=torch.float16)`). Default on; disable with `--no_fp16`. Expected ~1.5–2× on the model fwd; not measured here because MANO models + the robokit env's Blackwell-incompatible torch block running the full pipeline locally.
 - **Investigated and rejected** `scipy.spatial.cKDTree` as a drop-in for `sklearn.neighbors.KDTree` in `hamer/mesh_to_sdf/rgbd2pc.py`. Bench ran 17+ min vs sklearn's 4 min before being killed — cKDTree is slower for this query pattern (777 verts × ~300k depth points × 138 queries per minimize call). Sticking with sklearn KDTree.
+
+#### Phase 5+ — end-to-end measured 10.9× on RTX A5000
+
+Measured on `task_1_21s` (166 frames, 24 GB A5000, processing mode):
+
+| Phase | ms/frame | Wall | × vs original |
+|---|---:|---:|---:|
+| Original (broken-but-writing; latent `_save_meshes` arity bug silently ValueError'd every frame) | 4 490 | 12 m 25 s | 1.0× |
+| 1: PLY gating + binary writes + detector cache + arity bug fix + rich UI | 1 050 | 2 m 54 s | 4.3× |
+| 2: torch Adam minimize + fast convex-hull mask (replaces pyrender) | 574 | 1 m 35 s | 7.8× |
+| 3: lazy pyrender + processing/viz mode split | 566 | 1 m 34 s | 7.9× |
+| 4: Otsu-on-z replaces 3D KMeans in `rgbd2pc.py` | 526 | 1 m 27 s | 8.5× |
+| 5: 3dhand PLY gated viz-only + Adam patience early-stop | 400 | 1 m 6 s | 11.2× |
+| 6: cam_K cache + Adam state pre-alloc + async NPZ writes | 408 | 1 m 7 s | 11.0× |
+| **7: `_ensure_heavy_imports` deferred + model cache + per-step UI** | **412** | **1 m 8 s** | **10.9×** |
+| 7, opt-in `--frame_batch_size 2` | 310 | 51 s | 14.5× *(median 11 mm drift vs K=1)* |
+| 7, opt-in `--detector_stride 10` | 315 | 52 s | 14.3× *(p95 = 10 cm drift; not safe as default)* |
+
+The biggest single win was finding that `out/hamer/scene/*.ply` (ASCII PLY of a 300k-point cloud, written every frame on the original) wasn't consumed by rfp at all — gating it behind `--save_viz` removed ~63% of per-frame time in one move. Second-biggest was replacing pyrender (~370 ms) with a cv2 convex-hull mask (~5 ms). Torch Adam minimize replacing scipy Nelder-Mead unlocked GPU batching and is also **more robust** than scipy on hard frames (Nelder-Mead returned z=9 m garbage on a few frames; Adam holds onto sensible gradients).
+
+**Model cache:** ViTDet + ViTPose are pickled to `~/.cache/hamer/` (~5 GB total) after first construction. Subsequent runs deserialize from disk instead of rebuilding from checkpoints, saving ~18 s on the loading phase. HaMeR is always loaded fresh because its `LightningModule` holds a ctypes pointer in smplx's MANO wrapper that can't be pickled. Cache is fingerprinted by ckpt path/size/mtime so it auto-invalidates on checkpoint changes. Disable with `--no_model_cache`.
+
+**Per-step rich UI:** 4 import spinners (HaMeR + transformers, detectron2 + mmcv, pyrender, mmpose + ViTPose) + 3 model-load spinners (HaMeR, ViTDet, ViTPose) replace the original "Loading models" black box. `robokit/log.py` was patched to snapshot `sys.stdout` at `Console()` construction so the spinners survive `contextlib.redirect_stdout` used for third-party noise suppression — otherwise "Loading models" went blank for ~45 s.
 
 ### rfp-grasp-transfer — measured ≈1.5× on a noisy CPU bench (larger expected on GPU)
 
