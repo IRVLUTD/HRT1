@@ -631,8 +631,10 @@ class SAM2VideoPredictor(ObjectPredictor):
         SAM2 inference pass (one init_state load, one propagation loop), instead of looping
         the single-bbox call N times.
 
-        When N == 1 this matches propagate_masks_and_save's output. When N > 1 each object's
-        masks are written to obj_masks/ as obj{i}_<frame>.png to avoid filename collisions.
+        When N == 1 this matches propagate_masks_and_save's output:
+        out/samv2/<prompt>/obj_masks/<frame>.png. When N > 1 each object gets its own
+        sibling dir, out/samv2/<prompt>_obj{i}/obj_masks/<frame>.png, so that every
+        obj_masks/ holds exactly one object under frame-matched names.
 
         Parameters:
         - video_dir: Path to the video frames directory.
@@ -664,11 +666,30 @@ class SAM2VideoPredictor(ObjectPredictor):
                     )
 
                 if save_output:
-                    out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
-                    output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
-                    masks_dir = os.path.join(output_dir, "obj_masks")
-                    os.makedirs(masks_dir, exist_ok=True)
+                    prompt_slug = self.text_prompt.lower().replace(' ', '_') if self.text_prompt else ''
+                    samv2_root = os.path.join(os.path.dirname(video_dir), "out", "samv2")
+                    output_dir = os.path.join(samv2_root, prompt_slug) if prompt_slug else samv2_root
+
+                    # Consumers glob out/samv2/*/obj_masks and assume one dir == one
+                    # object whose masks are named <frame>.png, 1:1 with rgb/<frame>.jpg
+                    # (see BundleSDF/run_pose_only_bsdf.py). So when a prompt matches
+                    # several objects, give each its own sibling dir rather than
+                    # prefixing filenames inside a shared one — a shared dir breaks
+                    # that frame-name mapping for every downstream reader.
+                    masks_dirs = {}
+                    for i, _ in enumerate(bboxes):
+                        obj_id = i + 1
+                        obj_dir = (
+                            output_dir if len(bboxes) == 1
+                            else f"{output_dir}_obj{obj_id}"
+                        )
+                        masks_dirs[obj_id] = os.path.join(obj_dir, "obj_masks")
+                        os.makedirs(masks_dirs[obj_id], exist_ok=True)
+
                     if save_traj_overlay:
+                        # One combined overlay for all objects — lives in the base
+                        # prompt dir, which has no obj_masks of its own when N > 1
+                        # and therefore never matches the consumers' glob.
                         traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
                         os.makedirs(traj_overlayed_dir, exist_ok=True)
 
@@ -688,11 +709,10 @@ class SAM2VideoPredictor(ObjectPredictor):
                         mask = (out_mask_logits[j] > 0.0).cpu().numpy()
                         per_frame[int(obj_id)] = mask
                         if save_output:
-                            mask_fname = (
-                                out_file_name if len(bboxes) == 1
-                                else f"obj{int(obj_id)}_{out_file_name}"
+                            self.save_binary_mask_with_pil(
+                                mask[0],
+                                os.path.join(masks_dirs[int(obj_id)], out_file_name),
                             )
-                            self.save_binary_mask_with_pil(mask[0], os.path.join(masks_dir, mask_fname))
                     video_segments[out_frame_idx] = per_frame
 
                     if save_output and save_traj_overlay:

@@ -67,6 +67,8 @@ from robokit import log as vlog
 vlog.section("GDINO + SAMv2 — object mask propagation")
 with vlog.working("Importing ML stack (torch, GroundingDINO, SAM2, robokit)"):
     import numpy as np
+    import torch
+    from torchvision.ops import nms
     from absl import app, flags
     from PIL import Image as PILImg
     from robokit.perception import GroundingDINOObjectPredictor, SAM2VideoPredictor
@@ -101,6 +103,14 @@ flags.DEFINE_string(
     "large",
     "SAM2.1 model size variant: large (default, best quality) | base_plus | small | tiny. "
     "Smaller = faster forward pass; checkpoint auto-downloaded on first use.",
+)
+flags.DEFINE_float(
+    "nms_iou",
+    0.5,
+    "IoU threshold for NMS over the GroundingDINO boxes. GDINO regularly emits "
+    "several overlapping boxes for one physical object (e.g. a knife detected as "
+    "both the blade and the whole knife); each surviving box becomes its own "
+    "tracked object downstream, so dedup here. Set >=1.0 to disable.",
 )
 
 
@@ -148,7 +158,7 @@ def main(argv):
         t = _time.time()
         with vlog.working(f"Running GroundingDINO with prompt {text_prompt!r}"):
             with _silent():
-                initial_bboxes, _, _ = gdino.predict(first_frame, text_prompt)
+                initial_bboxes, _, conf = gdino.predict(first_frame, text_prompt)
         det_dt = _time.time() - t
 
         if len(initial_bboxes) == 0:
@@ -156,10 +166,27 @@ def main(argv):
             return
         vlog.step(f"  ↳ {len(initial_bboxes)} bbox(es) detected")
 
-        bbox_arrays = [
-            np.array(gdino.bbox_to_scaled_xyxy(bbox, *first_frame.size))
-            for bbox in initial_bboxes
-        ]
+        boxes_xyxy = torch.as_tensor(
+            gdino.bbox_to_scaled_xyxy(initial_bboxes, *first_frame.size),
+            dtype=torch.float32,
+        )
+        scores = torch.as_tensor(conf, dtype=torch.float32).reshape(-1)
+
+        # GDINO has no NMS of its own, so one physical object routinely comes back
+        # as several nested boxes. Every box that survives here is propagated and
+        # saved as a separate object, so a duplicate silently doubles the mask
+        # count and desynchronises masks from frames downstream.
+        if FLAGS.nms_iou < 1.0 and len(boxes_xyxy) > 1:
+            keep = nms(boxes_xyxy, scores, FLAGS.nms_iou)
+            keep, _ = torch.sort(keep)  # keep detection order stable for obj ids
+            if len(keep) < len(boxes_xyxy):
+                vlog.step(
+                    f"  ↳ NMS (iou={FLAGS.nms_iou}) dropped "
+                    f"{len(boxes_xyxy) - len(keep)} duplicate box(es) → {len(keep)} object(s)"
+                )
+            boxes_xyxy = boxes_xyxy[keep]
+
+        bbox_arrays = [np.array(b) for b in boxes_xyxy]
 
         # ---------------- Propagation ----------------
         vlog.section("Tracking (SAM2 propagation)")
