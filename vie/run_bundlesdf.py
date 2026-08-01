@@ -127,6 +127,14 @@ def main():
         "--rollout_frames", type=int, default=5, help="Number of frames to collect"
     )
     parser.add_argument(
+        "--n_step",
+        type=int,
+        default=5,
+        help="BundleSDF NeRF training steps per keyframe trigger. "
+             "Default 5 (was 10 from config.yml); raise to 10 if reconstruction "
+             "quality regresses.",
+    )
+    parser.add_argument(
         "--camera",
         type=str,
         default="Fetch",
@@ -366,6 +374,7 @@ def main():
             stride=args.stride,
             debug_level=args.debug_level,
             K=K,
+            n_step=args.n_step,
         )
         try:
             process_time = processor.process(

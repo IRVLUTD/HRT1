@@ -5,6 +5,7 @@
 #----------------------------------------------------------------------------------------------------
 
 import os
+import time
 import torch
 import hydra
 import logging
@@ -19,16 +20,124 @@ import groundingdino.datasets.transforms as T
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.inference import predict
 from groundingdino.util.utils import clean_state_dict
-# from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
-from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
-from sam2.build_sam import build_sam2_video_predictor
-from matplotlib import (patches, pyplot as plt)
-import matplotlib.cm as cm
 
-# Depth Point Cloud
+# GroundingDINO ships a custom CUDA op (`_C`) for multi-scale deformable
+# attention. setup_vie.sh applies an in-place patch to ms_deform_attn.py that
+# falls back to the pure-PyTorch implementation when `_C` is missing. The patch
+# itself emits one warning at import time. We only emit a second (actionable)
+# warning here in the dangerous case where `_C` is missing AND the patch was
+# never applied — i.e. the module doesn't even define _HAS_C.
+try:
+    from groundingdino import _C  # noqa: F401
+except Exception:
+    from groundingdino.models.GroundingDINO import ms_deform_attn as _gdino_msda
+    if not hasattr(_gdino_msda, "_HAS_C"):
+        warnings.warn(
+            "GroundingDINO `_C` missing AND in-place fallback patch not applied. "
+            "Re-run vie/setup_vie.sh; otherwise the model will fail at first "
+            "inference call with `name '_C' is not defined`."
+        )
+
+
+# ---------------- DALI fast-path for SAM2 init_state ----------------
+# SAM2's load_video_frames_from_jpg_images does PIL JPEG decode + resize
+# sequentially per frame. On a 70-frame clip this is ~10s upfront, dominated
+# by single-thread JPEG decode. NVIDIA DALI with nvJPEG GPU decoding processes
+# all frames in one pipeline run, returning the same (N, 3, H, H) normalized
+# tensor SAM2 expects, typically ~10x faster on this stage.
+#
+# We detect DALI at import time and monkey-patch sam2.utils.misc; if DALI is
+# missing the original PIL path stays in place (no behavior change).
+def _install_dali_sam2_loader():
+    try:
+        from nvidia.dali import pipeline_def, fn, types
+        from nvidia.dali.plugin.pytorch import feed_ndarray
+        import sam2.utils.misc as _sam2_misc
+    except Exception:
+        return False  # DALI or sam2 not available; leave original in place
+
+    _orig_loader = _sam2_misc.load_video_frames_from_jpg_images
+
+    def dali_loader(
+        video_path, image_size, offload_video_to_cpu,
+        img_mean=(0.485, 0.456, 0.406),
+        img_std=(0.229, 0.224, 0.225),
+        async_loading_frames=False,
+        compute_device=torch.device("cuda"),
+    ):
+        # Fall back to original for async / non-dir paths.
+        if async_loading_frames or not (
+            isinstance(video_path, str) and os.path.isdir(video_path)
+        ):
+            return _orig_loader(
+                video_path, image_size, offload_video_to_cpu,
+                img_mean, img_std, async_loading_frames, compute_device,
+            )
+
+        frame_names = sorted(
+            [p for p in os.listdir(video_path)
+             if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]],
+            key=lambda p: int(os.path.splitext(p)[0]),
+        )
+        if not frame_names:
+            raise RuntimeError(f"no images found in {video_path}")
+        img_paths = [os.path.join(video_path, n) for n in frame_names]
+        num_frames = len(img_paths)
+
+        device_id = compute_device.index if compute_device.index is not None else 0
+
+        @pipeline_def(batch_size=num_frames, num_threads=4, device_id=device_id)
+        def _pipe():
+            files, _ = fn.readers.file(files=img_paths, name="reader")
+            imgs = fn.decoders.image(files, device="mixed", output_type=types.RGB)
+            imgs = fn.resize(imgs, size=[image_size, image_size])
+            imgs = fn.crop_mirror_normalize(
+                imgs,
+                dtype=types.FLOAT,
+                output_layout="CHW",
+                mean=[m * 255 for m in img_mean],
+                std=[s * 255 for s in img_std],
+            )
+            return imgs
+
+        p = _pipe()
+        p.build()
+        out = p.run()
+        images_dali = out[0]
+
+        target_device = torch.device("cpu") if offload_video_to_cpu else compute_device
+        images = torch.empty(
+            (num_frames, 3, image_size, image_size),
+            dtype=torch.float32,
+            device=target_device,
+        )
+        # DALI's TensorList -> torch tensor (per-sample copy, all on GPU stays GPU)
+        for i in range(num_frames):
+            feed_ndarray(images_dali[i], images[i], cuda_stream=torch.cuda.current_stream())
+
+        # Original video size from one frame (DALI returns resized-only).
+        with PILImg.open(img_paths[0]) as im:
+            video_width, video_height = im.size
+
+        return images, video_height, video_width
+
+    _sam2_misc.load_video_frames_from_jpg_images = dali_loader
+    return True
+
+
+_DALI_INSTALLED = _install_dali_sam2_loader()
+if _DALI_INSTALLED:
+    logging.info("[sam2] DALI fast-path enabled for init_state JPEG decode")
+# from segment_anything import SamPredictor, SamAutomaticMaskGenerator, sam_model_registry
+# Heavy imports moved to lazy at use site — these were costing ~5s of startup
+# time each (pyrender pulls in pyglet+tkinter+freetype+imageio; mobile_sam
+# pulls in mobile-friendly Sam encoders) and the GDINO+SAM2 video path doesn't
+# touch any of them. matplotlib is also lazy because the only consumer is the
+# opt-in trajectory-overlay path. KDTree, pyrender are only used by the depth-
+# point-cloud helpers (DepthPC) and MobileSAMPredictor below.
+from sam2.build_sam import build_sam2_video_predictor
+
 import math
-import pyrender
-from sklearn.neighbors import KDTree
 
 
 # os.system("python setup.py build develop --user")
@@ -160,7 +269,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
             cache_file = hf_hub_download(repo_id=repo_id, filename=filename)
             checkpoint = torch.load(cache_file, map_location=self.device)
             log = model.load_state_dict(clean_state_dict(checkpoint['model']), strict=False)
-            print("Model loaded from {} \n => {}".format(cache_file, log))
+            self.logger.debug("Model loaded from %s => %s", cache_file, log)
             _ = model.eval()
             return model    
 
@@ -255,6 +364,10 @@ class SegmentAnythingPredictor(ObjectPredictor):
         Initialize the SegmentAnythingPredictor object.
         """
         super(SegmentAnythingPredictor, self).__init__()
+        # Lazy import: mobile_sam pulls in heavy deps; only load when this
+        # specific predictor is instantiated (the GDINO+SAM2-video path
+        # doesn't touch it).
+        from mobile_sam import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
         self.sam = sam_model_registry["vit_t"](checkpoint="ckpts/mobilesam/vit_t.pth")
         self.mask_generator = SamAutomaticMaskGenerator(self.sam)  # generate masks for entire image
         self.sam.to(device=self.device)
@@ -307,12 +420,34 @@ class SAM2VideoPredictor(ObjectPredictor):
     Predictor class for video object segmentation using the SAM2 model.
     Source: https://github.com/facebookresearch/sam2/blob/c2ec8e14a185632b0a5d8b161928ceb50197eddc/notebooks/video_predictor_example.ipynb
     """
-    def __init__(self, text_prompt=None):
-        """
-        Initializes the SAM2VideoPredictor class and attempts to load the model.
+
+    # SAM2.1 model size variants. Profiling on RTX 5070 showed the per-frame
+    # forward pass at ~54 ms with `large`; smaller variants trade some mask
+    # quality for big inference speedups when running on tight VRAM / CPU.
+    _SAM2_MODELS = {
+        "large":     ("configs/sam2.1/sam2.1_hiera_l.yaml",  "sam2.1_hiera_large.pth",     "sam2.1_hiera_large.pt"),
+        "base_plus": ("configs/sam2.1/sam2.1_hiera_b+.yaml", "sam2.1_hiera_base_plus.pth", "sam2.1_hiera_base_plus.pt"),
+        "small":     ("configs/sam2.1/sam2.1_hiera_s.yaml",  "sam2.1_hiera_small.pth",     "sam2.1_hiera_small.pt"),
+        "tiny":      ("configs/sam2.1/sam2.1_hiera_t.yaml",  "sam2.1_hiera_tiny.pth",      "sam2.1_hiera_tiny.pt"),
+    }
+    _SAM2_BASE_URL = "https://dl.fbaipublicfiles.com/segment_anything_2/092824/"
+
+    def __init__(self, text_prompt=None, model_size="large"):
+        """Initialize SAM2 video predictor.
+
+        Args:
+            text_prompt: optional prompt label used to namespace mask output dirs.
+            model_size: 'large' (default, best quality), 'base_plus' (~2x faster),
+                'small' (~3x), 'tiny' (~5x). The checkpoint is auto-downloaded
+                on first use from facebookresearch's CDN.
         """
         super(SAM2VideoPredictor, self).__init__()
-        self.logger = logging.getLogger(__name__)        
+        self.logger = logging.getLogger(__name__)
+        if model_size not in self._SAM2_MODELS:
+            raise ValueError(
+                f"unknown model_size {model_size!r}; valid: {list(self._SAM2_MODELS)}"
+            )
+        self.model_size = model_size
         self.predictor = self._load_predictor()
         self.text_prompt = text_prompt
 
@@ -322,12 +457,20 @@ class SAM2VideoPredictor(ObjectPredictor):
         # hydra is initialized on import of sam2, which sets the search path which can't be modified
         # so we need to clear the hydra instance
         hydra.core.global_hydra.GlobalHydra.instance().clear()
-        
+
         # reinit hydra with a new search path for configs
         hydra.initialize_config_module("robokit/sam2/sam2/", version_base='1.2') # Please don't change this
 
-        self.model_cfg = "configs/sam2.1/sam2.1_hiera_l.yaml" # Please don't change this
-        self.checkpoint_path = "./ckpts/samv2/sam2.1_hiera_large.pth" # Please don't change this
+        cfg_name, ckpt_name, src_name = self._SAM2_MODELS[self.model_size]
+        self.model_cfg = cfg_name
+        self.checkpoint_path = f"./ckpts/samv2/{ckpt_name}"
+        # Auto-download if missing (first time someone picks a non-large variant).
+        if not os.path.exists(self.checkpoint_path):
+            os.makedirs(os.path.dirname(self.checkpoint_path), exist_ok=True)
+            url = self._SAM2_BASE_URL + src_name
+            print(f"[sam2] downloading {url} -> {self.checkpoint_path}")
+            import urllib.request
+            urllib.request.urlretrieve(url, self.checkpoint_path)
 
 
     def _load_predictor(self):
@@ -340,7 +483,7 @@ class SAM2VideoPredictor(ObjectPredictor):
             # Load the SAM2 model with the configuration and checkpoint
             predictor = build_sam2_video_predictor(self.model_cfg, self.checkpoint_path)
 
-            print("SAM2 video predictor initialized successfully.")
+            self.logger.debug("SAM2 video predictor initialized.")
             
             return predictor
         
@@ -376,6 +519,7 @@ class SAM2VideoPredictor(ObjectPredictor):
 
             # Display the frame if requested
             if show_frame:
+                from matplotlib import pyplot as plt
                 plt.figure(figsize=(9, 6))
                 plt.title(f"Frame {frame_idx}")
                 plt.imshow(img)
@@ -432,6 +576,7 @@ class SAM2VideoPredictor(ObjectPredictor):
             self._load_and_show_frame(video_dir, show_frame=True)
 
             # Load the frame
+            from matplotlib import pyplot as plt
             frame_names = self.load_frames_from_directory(video_dir)
             frame_path = os.path.join(video_dir, frame_names[frame_idx])
             image = PILImg.open(frame_path)
@@ -480,25 +625,144 @@ class SAM2VideoPredictor(ObjectPredictor):
         except Exception as e:
             print(f"Error saving binary mask: {e}")
 
-    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True):
+    def propagate_masks_and_save_multi(self, video_dir, bboxes, vis_frame_stride=1, save_output=True, save_traj_overlay=False):
+        """
+        Propagate multiple bounding-box segmentations across the entire video in a SINGLE
+        SAM2 inference pass (one init_state load, one propagation loop), instead of looping
+        the single-bbox call N times.
+
+        When N == 1 this matches propagate_masks_and_save's output:
+        out/samv2/<prompt>/obj_masks/<frame>.png. When N > 1 each object gets its own
+        sibling dir, out/samv2/<prompt>_obj{i}/obj_masks/<frame>.png, so that every
+        obj_masks/ holds exactly one object under frame-matched names.
+
+        Parameters:
+        - video_dir: Path to the video frames directory.
+        - bboxes: list/array of [x_min, y_min, x_max, y_max].
+        - vis_frame_stride: stride for the optional trajectory overlay.
+        - save_output: If True, saves the binary obj_masks (default True).
+        - save_traj_overlay: If True, also saves matplotlib overlay PNGs (slow; default False).
+        """
+        if len(bboxes) == 0:
+            return [], {}
+
+        try:
+            t0 = time.time()
+            with torch.inference_mode(), torch.autocast(self.device):
+                # Initialize inference state ONCE for all bboxes — this is the big win.
+                inference_state = self.predictor.init_state(video_path=video_dir)
+                self.predictor.reset_state(inference_state)
+                t_init = time.time()
+
+                frame_names = self.load_frames_from_directory(video_dir)
+
+                # Add every bbox as its own object id on frame 0 before propagating.
+                for i, bbox in enumerate(bboxes):
+                    self.predictor.add_new_points_or_box(
+                        inference_state=inference_state,
+                        frame_idx=0,
+                        obj_id=i + 1,
+                        box=bbox,
+                    )
+
+                if save_output:
+                    prompt_slug = self.text_prompt.lower().replace(' ', '_') if self.text_prompt else ''
+                    samv2_root = os.path.join(os.path.dirname(video_dir), "out", "samv2")
+                    output_dir = os.path.join(samv2_root, prompt_slug) if prompt_slug else samv2_root
+
+                    # Consumers glob out/samv2/*/obj_masks and assume one dir == one
+                    # object whose masks are named <frame>.png, 1:1 with rgb/<frame>.jpg
+                    # (see BundleSDF/run_pose_only_bsdf.py). So when a prompt matches
+                    # several objects, give each its own sibling dir rather than
+                    # prefixing filenames inside a shared one — a shared dir breaks
+                    # that frame-name mapping for every downstream reader.
+                    masks_dirs = {}
+                    for i, _ in enumerate(bboxes):
+                        obj_id = i + 1
+                        obj_dir = (
+                            output_dir if len(bboxes) == 1
+                            else f"{output_dir}_obj{obj_id}"
+                        )
+                        masks_dirs[obj_id] = os.path.join(obj_dir, "obj_masks")
+                        os.makedirs(masks_dirs[obj_id], exist_ok=True)
+
+                    if save_traj_overlay:
+                        # One combined overlay for all objects — lives in the base
+                        # prompt dir, which has no obj_masks of its own when N > 1
+                        # and therefore never matches the consumers' glob.
+                        traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
+                        os.makedirs(traj_overlayed_dir, exist_ok=True)
+
+                fig = ax = None
+                if save_output and save_traj_overlay:
+                    # Lazy: matplotlib is only needed on the opt-in overlay path.
+                    from matplotlib import pyplot as plt
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    ax.set_axis_off()
+
+                video_segments = {}
+                # Single propagation pass yields all object ids per frame.
+                for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
+                    out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
+                    per_frame = {}
+                    for j, obj_id in enumerate(out_obj_ids):
+                        mask = (out_mask_logits[j] > 0.0).cpu().numpy()
+                        per_frame[int(obj_id)] = mask
+                        if save_output:
+                            self.save_binary_mask_with_pil(
+                                mask[0],
+                                os.path.join(masks_dirs[int(obj_id)], out_file_name),
+                            )
+                    video_segments[out_frame_idx] = per_frame
+
+                    if save_output and save_traj_overlay:
+                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                        ax.clear()
+                        ax.set_axis_off()
+                        ax.set_title(f"Frame {out_frame_idx}")
+                        ax.imshow(PILImg.open(img_path))
+                        for obj_id, mask in per_frame.items():
+                            self.show_mask(mask, ax, obj_id=obj_id)
+                        fig.savefig(os.path.join(traj_overlayed_dir, out_file_name))
+
+                if fig is not None:
+                    plt.close(fig)
+
+                t_done = time.time()
+                # Demoted to debug: callers (run_gdino_samv2.py) now render their
+                # own rich summary panel with these numbers.
+                logging.getLogger(__name__).debug(
+                    "[samv2] %d obj(s) x %d frames: init=%.2fs propagate+save=%.2fs total=%.2fs",
+                    len(bboxes), len(frame_names),
+                    t_init - t0, t_done - t_init, t_done - t0,
+                )
+
+        except Exception as e:
+            logging.error(f"Error during multi-bbox mask propagation: {e}")
+            raise
+
+        return frame_names, video_segments
+
+    def propagate_masks_and_save(self, video_dir, bbox, vis_frame_stride=1, save_output=True, save_traj_overlay=False):
         """
         Propagate the segmentation mask across the entire video and optionally save the frames with masks to a subdirectory.
-        
+
         Parameters:
         - video_dir: Path to the video frames directory.
         - bbox: The bounding box [x_min, y_min, x_max, y_max] for initial segmentation.
         - vis_frame_stride: Number of frames to skip while visualizing the segmentation (default is 30).
-        - save_output: If True, saves the segmented frames (default is True).
+        - save_output: If True, saves the binary obj_masks (default is True).
+        - save_traj_overlay: If True, also saves the matplotlib trajectory-overlay PNGs (slow; default False).
         """
         try:
             with torch.inference_mode(), torch.autocast(self.device):
                 # Initialize inference state
                 inference_state = self.predictor.init_state(video_path=video_dir)
                 self.predictor.reset_state(inference_state)
-                
+
                 # Get all frames from the directory
                 frame_names = self.load_frames_from_directory(video_dir)
-                
+
                 # Segment first frame
                 frame_idx = 0
                 _, out_obj_ids, out_mask_logits = self.predictor.add_new_points_or_box(
@@ -507,67 +771,77 @@ class SAM2VideoPredictor(ObjectPredictor):
                     obj_id=1,
                     box=bbox
                 )
-                
+
                 # Create output directory if save_output is True
                 if save_output:
                     out_path_suffix = f"/{self.text_prompt.lower().replace(' ', '_')}" if self.text_prompt else ''
                     output_dir = os.path.join(os.path.dirname(video_dir), f"out/samv2{out_path_suffix}")
                     masks_dir = os.path.join(output_dir, "obj_masks")
-                    traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
                     os.makedirs(masks_dir, exist_ok=True)
-                    os.makedirs(traj_overlayed_dir, exist_ok=True)
+                    if save_traj_overlay:
+                        traj_overlayed_dir = os.path.join(output_dir, "masks_traj_overlayed")
+                        os.makedirs(traj_overlayed_dir, exist_ok=True)
 
-                # Initialize trajectory list
-                centroids = []
-                
+                # Reuse a single matplotlib figure across frames when overlay saving is on.
+                fig = ax = bg_img_artist = bbox_patch = None
+                centroid_xs, centroid_ys = [], []
+                colormap = None
+                if save_output and save_traj_overlay:
+                    # Lazy: matplotlib is only needed on the opt-in overlay path.
+                    from matplotlib import pyplot as plt
+                    import matplotlib.cm as cm
+                    fig, ax = plt.subplots(figsize=(6, 4))
+                    ax.set_axis_off()
+                    bbox_patch = plt.Rectangle(
+                        (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1],
+                        linewidth=2, edgecolor="cyan", facecolor="none")
+                    ax.add_patch(bbox_patch)
+                    colormap = cm.get_cmap("autumn")
+
                 # Propagate mask across video
                 video_segments = {}
                 for out_frame_idx, out_obj_ids, out_mask_logits in self.predictor.propagate_in_video(inference_state):
                     for i, out_obj_id in enumerate(out_obj_ids):
-                        video_segments[out_frame_idx] = {out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()}
-                        # logging.info("Visualize and optionally save the results")
-                        plt.close("all")
-                
-                        plt.figure(figsize=(6, 4))
-                        plt.title(f"Frame {out_frame_idx}")
-                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
-                        img = PILImg.open(img_path)
-                        plt.imshow(img)
-                        
-                        # Draw bounding box
-                        plt.gca().add_patch(plt.Rectangle(
-                            (bbox[0], bbox[1]), bbox[2] - bbox[0], bbox[3] - bbox[1], 
-                            linewidth=2, edgecolor="cyan", facecolor="none"))
-                        
+                        out_mask = (out_mask_logits[i] > 0.0).cpu().numpy()
+                        video_segments[out_frame_idx] = {out_obj_id: out_mask}
                         out_file_name = frame_names[out_frame_idx].replace('.jpg', '.png')
-                        
-                        # Show segmentation masks
-                        for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                            self.show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
-                            
-                            # assumption only one object exists
+
+                        # Fast path: only save the binary mask (the actually-needed downstream output).
+                        if save_output:
                             self.save_binary_mask_with_pil(out_mask[0], os.path.join(masks_dir, out_file_name))
 
-                            centroid =  self.calculate_centroid(out_mask)
-                            centroids.append(centroid)
+                        if not (save_output and save_traj_overlay):
+                            continue
 
-                            # Plot the tracklet with centroids
-                            num_centroids = len(centroids)
-                            colormap = cm.get_cmap("autumn")  # Choose a colormap
-                            
-                            for idx, (x, y) in enumerate(centroids):
-                                color = colormap(idx / num_centroids)  # Darker for more recent, lighter for older
-                                plt.plot(x, y, 'o', color=color, markersize=3)
-                            
-                            # Disable axis numbers and ticks
-                            plt.axis('off')
-                            
-                            # Save the trajectory overlayed image if save_output is True
-                            if save_output:
-                                traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
-                                plt.savefig(traj_result_path)
-                                plt.close()
-            
+                        # Slow path: matplotlib overlay for debugging. Reuse the figure/axes.
+                        img_path = os.path.join(video_dir, frame_names[out_frame_idx])
+                        img = PILImg.open(img_path)
+                        if bg_img_artist is None:
+                            bg_img_artist = ax.imshow(img)
+                        else:
+                            bg_img_artist.set_data(img)
+                        ax.set_title(f"Frame {out_frame_idx}")
+                        # Draw current-frame mask via show_mask. (Each call adds an imshow layer;
+                        # pruning prior mask layers keeps the figure cheap.)
+                        while len(ax.images) > 1:
+                            ax.images[-1].remove()
+                        self.show_mask(out_mask, ax, obj_id=out_obj_id)
+
+                        # Append latest centroid; replot trajectory line incrementally.
+                        cx, cy = self.calculate_centroid(out_mask)
+                        centroid_xs.append(cx)
+                        centroid_ys.append(cy)
+                        # Recolor the most-recent point only (older points keep their colors).
+                        ax.plot(cx, cy, 'o',
+                                color=colormap(min(1.0, len(centroid_xs) / 100.0)),
+                                markersize=3)
+
+                        traj_result_path = os.path.join(traj_overlayed_dir, out_file_name)
+                        fig.savefig(traj_result_path)
+
+                if fig is not None:
+                    plt.close(fig)
+
         except Exception as e:
             logging.error(f"Error during mask propagation: {e}")
 
@@ -599,6 +873,8 @@ class SAM2VideoPredictor(ObjectPredictor):
             if random_color:
                 color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
             else:
+                # Lazy import: only the overlay path reaches this method.
+                from matplotlib import pyplot as plt
                 cmap = plt.get_cmap("tab10")
                 color = np.array([*cmap(obj_id or 0)[:3], 0.6])
 
@@ -716,6 +992,8 @@ class DepthPointCloud:
         # transform points to world
         pc_base = camera_pose[:3, :3] @ pc + camera_pose[:3, 3].reshape((3, 1))
         self.points = pc_base.T
+        # Lazy: sklearn.neighbors imports a lot. Only paid when DepthPC used.
+        from sklearn.neighbors import KDTree
         self.kd_tree = KDTree(self.points)
         
 
@@ -765,6 +1043,9 @@ class DepthPointCloud:
 
         # visualization
         if vis:
+            # Lazy: pyrender pulls in pyglet+tkinter+freetype+imageio (~5s).
+            # Only loaded for opt-in viewer.
+            import pyrender
             index = np.absolute(distances) < 0.03
             points_show = query_points[index]
             colors = np.zeros(points_show.shape)
@@ -808,6 +1089,7 @@ class DepthPointCloud:
         sdf = self.get_sdf(query_points)
 
         # visualization
+        import pyrender  # lazy
         colors = np.zeros(query_points.shape)
         colors[sdf < 0, 2] = 1
         colors[sdf > 0, 0] = 1
