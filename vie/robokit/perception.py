@@ -577,7 +577,7 @@ class SAM2VideoPredictor(ObjectPredictor):
 
             # Load the frame
             from matplotlib import pyplot as plt
-            frame_names = self.load_frames_from_directory(video_dir)
+            frame_names = self.sam2_frame_names(video_dir)
             frame_path = os.path.join(video_dir, frame_names[frame_idx])
             image = PILImg.open(frame_path)
             plt.imshow(image)
@@ -654,7 +654,8 @@ class SAM2VideoPredictor(ObjectPredictor):
                 self.predictor.reset_state(inference_state)
                 t_init = time.time()
 
-                frame_names = self.load_frames_from_directory(video_dir)
+                frame_names = self.sam2_frame_names(video_dir)
+                self._check_frame_names(frame_names, inference_state, video_dir)
 
                 # Add every bbox as its own object id on frame 0 before propagating.
                 for i, bbox in enumerate(bboxes):
@@ -760,8 +761,9 @@ class SAM2VideoPredictor(ObjectPredictor):
                 inference_state = self.predictor.init_state(video_path=video_dir)
                 self.predictor.reset_state(inference_state)
 
-                # Get all frames from the directory
-                frame_names = self.load_frames_from_directory(video_dir)
+                # Get all frames from the directory, as SAM2 enumerates them
+                frame_names = self.sam2_frame_names(video_dir)
+                self._check_frame_names(frame_names, inference_state, video_dir)
 
                 # Segment first frame
                 frame_idx = 0
@@ -944,6 +946,52 @@ class SAM2VideoPredictor(ObjectPredictor):
         ]
         frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
         return frame_names
+
+    def sam2_frame_names(self, video_dir):
+        """
+        Frame names exactly as SAM2 enumerates them, so that an out_frame_idx
+        coming back from propagate_in_video indexes the intended file.
+
+        SAM2 (both its own loader and the DALI fast path above) only ingests
+        jpg/jpeg. load_frames_from_directory also accepts png, so if a dir holds
+        both a .jpg and a .png per frame the two lists desynchronize: the png
+        entries shift every name, out_frame_idx lands in the first half of the
+        list, and each output name gets written by two different frames. Name
+        outputs off this list, never off load_frames_from_directory.
+
+        Parameters:
+        - video_dir: Directory containing video frames.
+
+        Returns:
+        - List of jpg frame file names, ordered by their numeric basename.
+        """
+        frame_names = [
+            p for p in os.listdir(video_dir)
+            if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
+        ]
+        frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
+        if not frame_names:
+            raise RuntimeError(
+                f"no jpg/jpeg frames in {video_dir}; SAM2 cannot read png input"
+            )
+        return frame_names
+
+    def _check_frame_names(self, frame_names, inference_state, video_dir):
+        """
+        Fail loudly if the naming list and SAM2's frame count disagree, rather
+        than silently writing masks under the wrong frame names.
+        """
+        num_frames = None
+        try:
+            num_frames = inference_state["num_frames"]
+        except Exception:
+            return
+        if num_frames is not None and num_frames != len(frame_names):
+            raise RuntimeError(
+                f"frame count mismatch for {video_dir}: SAM2 loaded {num_frames} "
+                f"frames but {len(frame_names)} jpg names were found. Masks would "
+                f"be written under the wrong frame names."
+            )
 
     def create_collage(self, video_dir, collage_size=(2, 3)):
         """
