@@ -158,7 +158,7 @@ export TASK_DATA_ROOT=/path/to/data/captured/task_x
 Use GDINO with a text prompt to identify the object of interest in the first frame:
 ```shell
 cd $VIE_ROOT
-python test_gdino_prompts.py \
+python ./scripts/tools/test_gdino_prompts.py \
     --input_dir $TASK_DATA_ROOT/rgb \
     --text_prompt <obj-text-prompt> \
     --infer_first_only
