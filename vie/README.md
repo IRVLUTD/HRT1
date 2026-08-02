@@ -75,7 +75,7 @@ python hamer/extract_hand_bboxes_and_meshes.py --opt_weight 100.0 \
 python rfp-grasp-transfer/transfer_from_hamer.py \
     --mano_model_dir hamer/_DATA/data/mano \
     --target_gripper fetch_gripper \
-    --input_dir $TASK_DATA_ROOT --save_viz
+    --input_dir $TASK_DATA_ROOT --debug_plots
 ```
 
 Per-script flags (`--save_traj_overlay`, `--save_debug_renders`, `--debug_plots`) still work for fine-grained control. Downstream pipeline data (binary masks, MANO npzs, scene PLYs, transferred-gripper PLYs, BundleSDF poses) is **always** written — `--save_viz` only toggles the *human-readable debug overlays* on top of those.
