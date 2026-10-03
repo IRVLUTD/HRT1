@@ -1,4 +1,13 @@
+<p align="right"><a href="../README.md">⬅️ Back to HRT1</a></p>
+
 # 🚀 Trajectory Tracking Optimization 🌟
+
+[![Stage IV](https://img.shields.io/badge/HRT1-Stage%20IV-blueviolet)](../README.md#-pipeline-at-a-glance)
+[![ROS Noetic](https://img.shields.io/badge/ROS-Noetic-22314E?logo=ros&logoColor=white)](http://wiki.ros.org/noetic)
+[![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/release/python-390/)
+[![Fetch](https://img.shields.io/badge/Robot-Fetch-orange)](https://docs.fetchrobotics.com/)
+[![Gazebo](https://img.shields.io/badge/Sim-Gazebo-F58113)](https://gazebosim.org/)
+[![MoveIt](https://img.shields.io/badge/MoveIt-planning-2D4B7C)](https://moveit.ros.org/)
 
 This repository provides a complete pipeline for **trajectory tracking and optimization** for **mobile manipulation tasks**, supporting both **simulation** and **real-world execution** using the **Fetch robot** on **ROS Noetic**.
 
@@ -24,7 +33,10 @@ This repository provides a complete pipeline for **trajectory tracking and optim
 
 
 ---
+
 https://github.com/user-attachments/assets/3359c6ae-18cd-4906-8600-5a16a5120054
+
+---
 
 ## 📦 Install the Module
 
@@ -38,7 +50,7 @@ conda activate trajopt
 
 ### 2. Install Dependencies 📚
 Install ROS and Python dependencies required for the project.
-```
+```bash
 source /opt/ros/noetic/setup.bash
 chmod +x install_ros_deps.sh
 sh install_ros_deps.sh
@@ -47,7 +59,7 @@ pip install -r requirements.txt
 
 ### 3. Build the ROS Workspace 🏗️
 Navigate to the workspace and build it with the following commands.
-```
+```bash
 cd mm_ws
 source /opt/ros/noetic/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
@@ -64,35 +76,35 @@ The runtime mainly involves spawning the environment, robot, GSAM server, Object
 
 ### 1. Launch Gazebo Environment 🌍
 Start the Gazebo simulation with a GUI for visualization.
-```
+```bash
 roslaunch aws_robomaker_small_house_world small_house.launch gui:=True
 ```
 
 ### 2. Launch Robot 🤖
 Spawn the robot in the Gazebo environment.
-```
+```bash
 roslaunch fetch_gazebo spawn_robot.launch
 ```
 Make sure to use correct ```fetch.urdf``` according to desired gripper config. The default urdf file corresponds to config 1. 
 
 ### 3. Launch MoveIt 🦾
 Initialize MoveIt for motion planning. If using gripper config 1:
-```
+```bash
 roslaunch fetch_moveit_config moveit.launch robot:=fetch_original
 ```
 if using gripper config 2:
-```
+```bash
 roslaunch fetch_moveit_config move_group.launch
 ```
 
 ### 4. Launch RViz 📊
 Visualize the robot and environment in RViz.
-```
+```bash
 cd mm_ws/config
 rosrun rviz rviz -d tto.rviz
 ```
 ### 5. Update Task and robot params
-```
+```bash
 cd mm_ws/scripts/config/
 ```
 Update ```paths.py``` to reflect the ```TASK_ID```, Gripper configs, etc..,. 
@@ -100,37 +112,38 @@ NOTE: ```CURRENT_GRIPPER_CONFIG``` should always be 0.
 
 ### 6. Run the GroundingSAM ROS server
 This GroundingSAM (GSAM) service is part of the vie module and is present in ```HRT1/vie```. Please ensure to activate the [robokit environment](../vie/README.md##Requirements) to run this service.
-```
+```bash
 python gsam_server.py
 ```
 Optimization requires the target object mask, so that it will not consider the object pointcloud as obstacle while tracking the trajectory. so we run this GSAM ROS service to query object mask with the prompt being passed as argument in the main script next. Set ```IS_MASK=True``` in ```paths.py```. If you want to test the optimization without it, no need to run this server and set ```IS_MASK=False```.
 
 
-🧱 Note: 
-Steps 1–6 only need to be launched once.
-Step 7 (Optimization) can be rerun for each new task or object.
+> 🧱 Note: 
+> Steps 1–6 only need to be launched once.
+> Step 7 (Optimization) can be rerun for each new task or object.
 
 ### 7. Run Optimization and task execution in Sim
 
 Run trajectory optimization including the robot's base. This script automatically spawn the scene corresponding to "move the cracker box" task. If you want to run with base optimization, set ```IS_BASE=True```.
 
-🧱 NOTE: It is an approximate scene setup compared to the actual realworld demonstration, and is intended for users to test and validate the optimization module before deploying on real hardware.
+> 🧱 NOTE: It is an approximate scene setup compared to the actual realworld demonstration, and is intended for users to test and validate the optimization module before deploying on real hardware.
 
-```
+```bash
 cd mm_ws/scripts/traj_opt
 python run.py --stow_dir "right" --obj_prompt <object-name> 
 ```
 All the key params are taken from ```paths.py```. Make sure to have it updated relevant to the task being conducted.
 
+---
 
 ## 🏠 Running in realworld
-**Note**: For running in realworld, just set the param ```IS_SIM=False``` and ```IS_DELTA=True```. 
-run steps 1-6 from the [ Running in Simulation](#-running-in-simulation) section, before proceedinf further.
+> **Note**: For running in realworld, just set the param ```IS_SIM=False``` and ```IS_DELTA=True```. 
+> run steps 1-6 from the [ Running in Simulation](#-running-in-simulation) section, before proceedinf further.
 
 ### 7. Run time Object Pose transformation realtime
 To estimate the object pose during run time, relative to demonstration first frame, we use BundleSDF. This aligns the real-world scene with the recorded demonstration frames to provide accurate object-relative transformations.
 
-```
+```bash
 cd vie/docker/
 ./enter_docker.sh && ./start_docker.sh
 cd ..
@@ -140,7 +153,7 @@ cd ..
 ### 8. Run Optimization and the task execution realworld
 
 Run trajectory optimization including the robot's base.
-```
+```bash
 cd mm_ws/scripts/traj_opt
 python run.py --stow_dir "right" --obj_prompt <object-name> 
 ```

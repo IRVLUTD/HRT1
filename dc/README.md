@@ -1,4 +1,12 @@
+<p align="right"><a href="../README.md">⬅️ Back to HRT1</a></p>
+
 # 🛠️ Hardware Setup for Data Collection
+
+[![Stage I](https://img.shields.io/badge/HRT1-Stage%20I-blueviolet)](../README.md#-pipeline-at-a-glance)
+[![ROS](https://img.shields.io/badge/ROS-22314E?logo=ros&logoColor=white)](https://www.ros.org/)
+[![HoloLens 2](https://img.shields.io/badge/HoloLens%202-0078D4?logo=microsoft&logoColor=white)](https://www.microsoft.com/en-us/hololens)
+[![ROS-TCP-Endpoint](https://img.shields.io/badge/ROS--TCP--Endpoint-Unity-000000?logo=unity&logoColor=white)](https://github.com/Unity-Technologies/ROS-TCP-Endpoint)
+
 - [🛠️ Hardware Setup for Data Collection](#️-hardware-setup-for-data-collection)
   - [1️⃣ Setup Robot 🤖](#1️⃣-setup-robot-)
     - [Steps:](#steps)
@@ -22,7 +30,9 @@ source devel/setup.bash
 cd $ROOT_DIR
 ```
 
-![⚙️ Robot Setup](../media/robot/hotspot-and-terminal-cmds.webp)
+<p align="center">
+  <img src="../media/robot/hotspot-and-terminal-cmds.webp" alt="⚙️ Robot Setup" width="800"/>
+</p>
 
 ### Steps:
 - 1️⃣ **Activate robot WiFi hotspot** from network settings. 📶  
@@ -32,6 +42,7 @@ cd $ROOT_DIR
     - Requires Python 3.x. Example conda [env.yml](./robot/catkin_ws/conda-env/robot-hololens.yml).  
 - 4️⃣ **Run save human demo data script:** 💾  
     - Requires Python 2.x. Example conda [env.yml](./robot/catkin_ws/conda-env/robot-save-data.yml).
+
 ---
 
 ## 2️⃣ Setup HoloLens2 👓
@@ -46,7 +57,7 @@ cd $ROOT_DIR
 
 ---
 
-🎉 **You're ready to capture data!**
+<p align="center">🎉 <b>You're ready to capture data!</b></p>
 
 ---
 
@@ -54,7 +65,7 @@ cd $ROOT_DIR
 The data will stored in `dc/robot/catkin_ws/scripts/data_captured/`
 After data capture, the directory structure will look like this:
 
-```
+```text
 ├── data_captured
     ├── <task-name>_1/
         ├── cam_K.txt
