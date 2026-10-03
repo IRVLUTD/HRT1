@@ -104,6 +104,7 @@ git submodule update --remote --recursive
 ## 🙏 Acknowledgements
 
 HRT1 builds on several excellent open-source projects, including
+[robokit](https://github.com/jishnujayakumar/robokit),
 [GroundingDINO](https://github.com/IDEA-Research/GroundingDINO),
 [SAM 2](https://github.com/facebookresearch/sam2),
 [HaMeR](https://github.com/geopavlakos/hamer),
