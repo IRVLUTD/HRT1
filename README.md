@@ -11,8 +11,6 @@
   <a href="https://yuxng.github.io">Yu Xiang</a>
   <br>
   <sub>* Equal Contribution</sub>
-  <br>
-  <sub><a href="https://labs.utdallas.edu/irvl/">Intelligent Robotics and Vision Lab</a>, The University of Texas at Dallas</sub>
 </p>
 
 <p align="center">
@@ -130,5 +128,5 @@ Please cite this work if it helps in your research
 ---
 
 <p align="center">
-  Released under the <a href="LICENSE">MIT License</a> · © <a href="https://labs.utdallas.edu/irvl/">IRVL @ UT Dallas</a>
+  Released under the <a href="LICENSE">MIT License</a>
 </p>
