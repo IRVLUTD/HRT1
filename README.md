@@ -130,5 +130,5 @@ Please cite this work if it helps in your research
 ---
 
 <p align="center">
-  Released under the <a href="LICENSE">MIT License</a> · © 2024 <a href="https://labs.utdallas.edu/irvl/">IRVL @ UT Dallas</a>
+  Released under the <a href="LICENSE">MIT License</a> · © 2025–2026 <a href="https://labs.utdallas.edu/irvl/">IRVL @ UT Dallas</a>
 </p>
