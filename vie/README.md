@@ -7,7 +7,6 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![CUDA](https://img.shields.io/badge/CUDA-enabled-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-zone)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](../LICENSE)
-[![Lab: IRVL UTD](https://img.shields.io/badge/lab-IRVL%20UTD-005CAB)](https://labs.utdallas.edu/irvl/)
 [![GroundingDINO](https://img.shields.io/badge/GroundingDINO-IDEA--Research-orange)](https://github.com/IDEA-Research/GroundingDINO)
 [![SAM 2](https://img.shields.io/badge/SAM%202-Meta-1877F2)](https://github.com/facebookresearch/sam2)
 [![HaMeR](https://img.shields.io/badge/HaMeR-geopavlakos-7D3C98)](https://github.com/geopavlakos/hamer)
