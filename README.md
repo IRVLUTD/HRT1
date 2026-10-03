@@ -35,7 +35,9 @@
 - [📝 Abstract](#-abstract)
 - [🧩 Pipeline at a Glance](#-pipeline-at-a-glance)
 - [⚙️ Setup](#️-setup)
-- [🔄 Updating Submodules](#-updating-submodules)
+  - [1️⃣ Clone the Repository and set environment variables](#1️⃣-clone-the-repository-and-set-environment-variables)
+  - [2️⃣ Set up each stage](#2️⃣-set-up-each-stage)
+  - [3️⃣ Keep submodules up to date](#3️⃣-keep-submodules-up-to-date)
 - [🙏 Acknowledgements](#-acknowledgements)
 - [📚 Citation](#-citation)
 
@@ -70,7 +72,7 @@ flowchart LR
 
 ## ⚙️ Setup
 
-### Clone the Repository and set environment variables
+### 1️⃣ Clone the Repository and set environment variables
 Clone the repository recursively to include all submodules:
 ```bash
 git clone --recursive https://github.com/IRVLUTD/HRT1 && cd HRT1
@@ -81,16 +83,18 @@ conda activate hrt1
 # Set your CUDA_HOME environment variable
 export CUDA_HOME=/usr/local/cuda
 ```
-This codebase, built on top of the [robokit](https://github.com/IRVLUTD/robokit) and [gto](https://github.com/IRVLUTD/GraspTrajOpt) tools. Refer Readme document for each of the below utilities to setup the pipeline. 
 
-- Stage I: [`dc/`](dc/) contains the HoloLens app for data capture.
-- Stage II & III: [`vie/`](vie/) contains human demo data capture and video information extraction (vie) modules and grasp transfer.
-  -  **Note**: This also contains BundleSDF module to run object pose estimation during execution.
-- Stage IV: [`tto/`](tto/) contains the instructions for simulation , realworld setup and runtime scripts for trajectory tracking optimization and task execution.
+### 2️⃣ Set up each stage
 
----
+This codebase, built on top of the [robokit](https://github.com/IRVLUTD/robokit) and [gto](https://github.com/IRVLUTD/GraspTrajOpt) tools. Refer Readme document for each of the below utilities to setup the pipeline, in this order:
 
-## 🔄 Updating Submodules
+1. 👓 **Stage I** → [`dc/`](dc/README.md)
+2. 🎬 **Stage II & III** → [`vie/`](vie/README.md) (also contains the BundleSDF module used for object pose estimation during execution)
+3. 🚀 **Stage IV** → [`tto/`](tto/README.md)
+
+See [🧩 Pipeline at a Glance](#-pipeline-at-a-glance) for what each stage does.
+
+### 3️⃣ Keep submodules up to date
 
  To get the latest changes from the submodules
 
