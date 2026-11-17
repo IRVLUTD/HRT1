@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2510.21026"><img src="https://img.shields.io/badge/arXiv-2510.21026-b31b1b.svg?logo=arxiv&logoColor=white" alt="arXiv"></a>
+  <a href="https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=11769966"><img src="https://img.shields.io/badge/IEEE-RA--L%202026-00629B.svg?logo=ieee&logoColor=white" alt="IEEE RA-L 2026"></a>
   <a href="https://irvlutd.github.io/HRT1/"><img src="https://img.shields.io/badge/Project-Webpage-2ea44f.svg?logo=googlechrome&logoColor=white" alt="Project Page"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.10-blue.svg?logo=python&logoColor=white" alt="Python 3.10">
@@ -122,11 +123,15 @@ We thank their authors for making their work available.
 
 Please cite this work if it helps in your research
 ```bibtex
-@misc{2025hrt1,
-  title={HRT1: One-Shot Human-to-Robot Trajectory Transfer for Mobile Manipulation}, 
-  author={Sai Haneesh Allu* and Jishnu Jaykumar P* and Ninad Khargonkar and Tyler Summers and Jian Yao and Yu Xiang},
-  year={2025},
-  url={https://arxiv.org/abs/2510.21026}, 
+@ARTICLE{2026hrt1,
+  title   = {{HRT1: One-Shot Human-to-Robot Trajectory Transfer for Mobile Manipulation}},
+  author  = {Allu, Sai Haneesh and P, Jishnu Jaykumar and Khargonkar, Ninad and Summers, Tyler and Yao, Jian and Xiang, Yu},
+  journal = {IEEE Robotics and Automation Letters (RA-L)},
+  volume  = {11},
+  number  = {12},
+  pages   = {15116--15123},
+  year    = {2026},
+  doi     = {10.1109/LRA.2026.3749519}
 }
 ```
 
